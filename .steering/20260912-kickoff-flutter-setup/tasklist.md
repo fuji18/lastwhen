@@ -29,9 +29,9 @@
 
 ## フェーズ1.5: MCP・UI ツール
 
-- [ ] MCP の追加要否を判断(モバイルアプリのため Playwright MCP は不要の見込み)
-- [ ] `docs/ui-design-guidelines.md` §7「実装への翻訳」表を Flutter 向けに記入
-- [ ] Design プラグイン導入の要否をユーザーに確認
+- [x] MCP の追加要否を判断 → 既定の Context7 のみで開始(モバイルアプリのため Playwright MCP は不要、ローカル DB は開発時に外部接続しない)
+- [x] `docs/ui-design-guidelines.md` §7「実装への翻訳」表を Flutter / Material 3 向けに記入(プロダクト固有の翻訳表も追加)
+- [x] Design プラグイン: ユーザーは導入を承認したが、`claude-plugins-official` マーケットプレイスに `design` が見つからず**未導入**。UI レビューは `code-reviewer` + ガイドライン §6 で代替する(残課題)
 
 ## フェーズ2: 永続ドキュメントの作成
 
