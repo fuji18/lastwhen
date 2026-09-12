@@ -36,3 +36,8 @@
   Secret scanning と Push protection も有効化
 - テンプレート追従の基準 SHA を `.claude/template-manifest.json` に記録
 - テンプレート由来の `.steering/*/`(47 件)と `docs/template-dev/` の資料を削除
+- 委託禁止領域に**プロジェクト固有パス**を追加(`AGENTS.md` §4 のマーカー内)。
+  `lib/data/database/` と `lib/data/migrations/` —— Drift のスキーマとマイグレーションで、
+  一度出荷した移行は修正できず、失敗がユーザーの記録の全損になる
+- チケット用ラベルを作成(`ticket` / `P0` / `P1` / `P2` / `in-progress` /
+  `delegate:codex` / `no-changelog` / `no-decision-record`)

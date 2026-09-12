@@ -48,25 +48,25 @@
 
 ## フェーズ3: 実装チケットへの分割
 
-- [ ] P0 機能を GitHub Issues に起票(`ticket` + 優先度ラベル)
-- [ ] P1 / P2 は backlog として区別
+- [x] P0 機能を GitHub Issues に起票(#2〜#9 の 8 枚。`ticket` + `P0` ラベル)
+- [x] P1 / P2 は backlog として区別(Issue 未発行。PRD に F9〜F26 として ID つきで記載)
 
 ## フェーズ4: ハーネス層
 
-- [ ] `/harness-setup` 相当の確認(フェーズ1 で検証コマンドを反映済みか)
-- [ ] 委託禁止領域のプロジェクト固有パスを `AGENTS.md` §4 のマーカー内に追記
+- [x] ハーネスの検証コマンドを Flutter に反映済み(フェーズ1)。Dependabot もプロダクト向けに再チューニング済み
+- [x] 委託禁止領域に `lib/data/database/` と `lib/data/migrations/` を追記(`--print-forbidden` で出ることを確認)
 
 ## フェーズ5: リポジトリのプロダクト化
 
-- [ ] `README.md` をプロダクトの README に書き換え
-- [ ] `package.json` のメタデータ(フェーズ1 と同時)
-- [ ] `.devcontainer/devcontainer.json` の `name`(フェーズ1 と同時)
-- [ ] ライセンス方針をユーザーに確認して反映
-- [ ] `CLAUDE.md` の整合(初回セットアップ節の削除・技術スタック注記の削除・README 参照の整合)
-- [ ] `docs/template-dev/` の削除を提案
-- [ ] テンプレート由来の `.steering/*/` を削除(**auto mode の分類器にブロックされたため要ユーザー判断**)
+- [x] `README.md` をプロダクトの README に書き換え
+- [x] `package.json` のメタデータ(name / description / keywords。package-lock.json も同期済み)
+- [x] `.devcontainer/devcontainer.json` の `name` を `lastwhen` に
+- [x] ライセンス: MIT で公開(LICENSE の Copyright 名義は既に正しく、変更不要)
+- [x] `CLAUDE.md` の整合(初回セットアップ節を削除 / 技術スタックを Flutter に / 削除済み資料への参照を除去 / プロジェクト固有ルールを集約)
+- [x] `docs/template-dev/` を削除(`CHANGELOG.md` のみ残置。理由はコミットメッセージと `docs/repository-structure.md`)
+- [x] テンプレート由来の `.steering/*/` を 47 件すべて削除
 
 ## フェーズ6: 開始
 
-- [ ] 最初のチケットを提示
-- [ ] Step 0 の残課題を再掲(`CLAUDE_CODE_OAUTH_TOKEN` 未設定)
+- [x] 最初のチケットを提示 → #2(Flutter プロジェクトの初期化)
+- [x] Step 0 の残課題を再掲(`CLAUDE_CODE_OAUTH_TOKEN` 未設定 / Design プラグイン未導入)
