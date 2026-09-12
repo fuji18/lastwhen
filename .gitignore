@@ -1,16 +1,51 @@
 # Temporary files
 tmp/
 
-# Node.js
+# Node.js(ハーネス専用: husky / lint-staged / secretlint)
 node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Build outputs
-dist/
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
 build/
-*.tsbuildinfo
+doc/api/
+
+# Flutter の生成物のうち *.g.dart / *.drift.dart は追跡する。
+# CI でコード生成を回さずに済み、スキーマ変更の差分がレビューで見えるため
+# (方針: .steering/20260912-kickoff-flutter-setup/design.md)。
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+**/*.mobileprovision
+**/*.p12
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+**/gradle-wrapper.jar
+
+# IDE / エディタ
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
 
 # Environment variables
 .env
@@ -25,21 +60,10 @@ logs/
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
 # Testing
 coverage/
-.nyc_output/
 
 # Steering files (.steering/) は履歴としてコミットする(CLAUDE.md の方針に従う)
-
-# Lock files (keep package-lock.json for consistency)
-# yarn.lock
 
 .claude/settings.local.json
 .claude/.lint-on-edit.lock

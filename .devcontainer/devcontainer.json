@@ -1,23 +1,41 @@
 {
-  "name": "template-project",
+  "name": "lastwhen",
   "image": "mcr.microsoft.com/devcontainers/base:bookworm",
   "features": {
+    // Node は「アプリのスタック」ではなくハーネスの前提として要る:
+    //   - Claude Code 本体と Codex CLI が npm install -g で入る(post_create.sh)
+    //   - MCP(Context7)が npx 起動
+    //   - husky / lint-staged / secretlint(ガードレールの実体)
+    // Flutter 化しても外さないこと。
     "ghcr.io/devcontainers/features/node:2": {
       "version": "24"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Android SDK は Flutter のビルドに要る(Java 17 は Android Gradle Plugin の要求)
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installGradle": false
+    }
   },
   "containerEnv": {
-    "LOCAL_GH_TOKEN": "${localEnv:GH_TOKEN}"
+    "LOCAL_GH_TOKEN": "${localEnv:GH_TOKEN}",
+    "FLUTTER_ROOT": "/opt/flutter",
+    "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${containerEnv:PATH}"
   },
   "customizations": {
     "vscode": {
       "settings": {
-        "chat.mcp.autoStart": "newAndOutdated"
+        "chat.mcp.autoStart": "newAndOutdated",
+        "dart.flutterSdkPath": "/opt/flutter",
+        "editor.formatOnSave": true,
+        "[dart]": {
+          "editor.defaultFormatter": "Dart-Code.dart-code"
+        }
       },
       "extensions": [
-        "GitHub.vscode-pull-request-github",
-        "ms-vscode.live-server"
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+        "GitHub.vscode-pull-request-github"
       ]
     }
   },

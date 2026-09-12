@@ -10,13 +10,16 @@
       "Skill(glossary-creation)",
       "Skill(steering)",
       "Skill(implement-ticket)",
-      "Bash(npm test:*)",
-      "Bash(npm run:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter test:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter pub run:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(dart format:*)",
+      "Bash(dart analyze:*)",
+      "Bash(dart run:*)",
       "Bash(npm ci:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npx vitest:*)",
-      "Bash(npx eslint:*)",
-      "Bash(npx prettier:*)",
+      "Bash(npx secretlint:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -98,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; npx --no-install prettier --write --ignore-unknown \"$f\"; } 2>/dev/null || true"
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in *.dart) dart format \"$f\" ;; esac; } 2>/dev/null || true"
           },
           {
             "type": "command",

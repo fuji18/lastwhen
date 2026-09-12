@@ -1,26 +1,45 @@
-# テンプレートの鮮度維持: 依存関係・Actions・devcontainer を週次でチェックする
+# プロダクト向けプロファイル。
+# minor / patch はグループ化して 1 PR にまとめ、major だけ個別 PR にする。
+# interval は monthly —— セキュリティ更新は interval と無関係に即時 PR が出るため、
+# monthly に落としてもセキュリティ対応は遅れない。
 version: 2
 updates:
+  # アプリ本体(Flutter / Dart)
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      pub-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ハーネス専用の Node 依存(husky / lint-staged / secretlint)。
+  # アプリのビルドには関与しないが、ガードレールの実体なので追従させる。
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    # devDependencies は 1 PR にまとめてレビューコストを下げる
+      interval: monthly
+    open-pull-requests-limit: 3
     groups:
-      dev-dependencies:
-        dependency-type: development
-    ignore:
-      # typescript-eslint の peer 制約(TS 6 系まで)を超える major 更新は
-      # ツールチェーン側が追随するまで受け付けない(npm ci が ERESOLVE で失敗する)
-      - dependency-name: typescript
-        update-types: ['version-update:semver-major']
+      harness-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: devcontainers
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
