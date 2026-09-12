@@ -7,7 +7,7 @@ echo "=== Post-create setup ==="
 # devcontainer feature は使わない(公式 feature が無く、コミュニティ feature は
 # 供給元が個人メンテ = サプライチェーン上の依存を増やしたくない)。
 # 公式リポジトリの stable ブランチを浅く clone する。PATH は devcontainer.json の
-# containerEnv で通してあるので、ここでは配置と初期化だけを行う。
+# remoteEnv で通してあるので、ここでは配置と初期化だけを行う。
 echo "[1/5] Installing Flutter SDK..."
 FLUTTER_ROOT="${FLUTTER_ROOT:-/opt/flutter}"
 if [ -x "$FLUTTER_ROOT/bin/flutter" ]; then
@@ -39,8 +39,23 @@ else
 fi
 
 # Install Claude Code
+#
+# Codex と同じ構造の落とし穴がある。本体パッケージはランチャーだけを含み、実体は
+# プラットフォーム別のネイティブバイナリ(@anthropic-ai/claude-code-linux-x64、
+# 展開後およそ 220MB)が optionalDependencies で降ってくる。optional なので取得に
+# 失敗しても npm は成功扱いで終わり(ログには reify failed optional dependency だけが
+# 残る)、その後 postinstall がコピー対象の無いまま正常終了する。実行時に初めて
+#   Error: claude native binary not installed.
+# で落ちる。インストール成否は npm ではなく claude --version で判定する。
 echo "[3/5] Installing Claude Code..."
-npm install -g @anthropic-ai/claude-code
+npm install -g @anthropic-ai/claude-code || true
+if ! claude --version &>/dev/null; then
+  echo "  ⚠️  ネイティブバイナリの取得に失敗。再試行します..."
+  npm install -g @anthropic-ai/claude-code || true
+fi
+if ! claude --version &>/dev/null; then
+  echo "  ⚠️  Claude Code のインストールに失敗しました。手動で 'npm install -g @anthropic-ai/claude-code' を実行してください。"
+fi
 
 # Install Codex CLI (Codex 併用ハーネスの前提。docs/template-dev/codex-harness.html §12.4)
 # 認証(codex login)はリビルドのたびに人間の手動操作が要る。~/.codex は
