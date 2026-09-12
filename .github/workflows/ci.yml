@@ -164,27 +164,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # 暫定ガード: Flutter プロジェクトの実体がまだ無い期間だけ検査を飛ばす。
+      # quality はルールセットの required status check なので、pubspec.yaml が無い
+      # 状態で失敗させると「初期化する PR 自体がマージできない」デッドロックになる。
+      # #2(Flutter プロジェクトの初期化)がマージされたら、この step と
+      # 以降の各 step の if 条件をまとめて削除すること(#2 の受け入れ条件に含めてある)。
+      - name: Check Flutter project presence
+        id: probe
+        run: |
+          if [ -f pubspec.yaml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::pubspec.yaml が無いため品質検査をスキップしました。Flutter プロジェクトの初期化(#2)が未完了です。この暫定ガードは #2 で削除します"
+          fi
+
       - name: Setup Flutter
+        if: steps.probe.outputs.present == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
       - name: Install dependencies
+        if: steps.probe.outputs.present == 'true'
         run: flutter pub get
 
       - name: Format check
+        if: steps.probe.outputs.present == 'true'
         run: dart format --output=none --set-exit-if-changed .
 
       # Dart は lint と型チェックが分離できない。analyze が両方を担う
       - name: Analyze
+        if: steps.probe.outputs.present == 'true'
         run: flutter analyze --fatal-infos
 
       - name: Test
+        if: steps.probe.outputs.present == 'true'
         run: flutter test
 
       # secretlint は npm 依存(Dart エコシステムに同等品が無い)。
-      # ハーネス専用の package.json から実行する
+      # ハーネス専用の package.json から実行する。
+      # これは Flutter の有無と無関係に常に走らせる —— 機密の混入検出を
+      # 暫定ガードで飛ばしてはいけない。
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:

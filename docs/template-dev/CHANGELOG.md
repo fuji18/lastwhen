@@ -41,3 +41,8 @@
   一度出荷した移行は修正できず、失敗がユーザーの記録の全損になる
 - チケット用ラベルを作成(`ticket` / `P0` / `P1` / `P2` / `in-progress` /
   `delegate:codex` / `no-changelog` / `no-decision-record`)
+- **CI の `quality` ジョブに暫定ガードを追加。** `pubspec.yaml` が無い間、Flutter 系の
+  step を飛ばす。`quality` はルールセットの required status check なので、
+  Flutter プロジェクト未初期化の状態で失敗させると「初期化する PR 自体がマージできない」
+  デッドロックになる。**secretlint は Flutter の有無と無関係に常に走る**
+  (機密検出を暫定ガードで飛ばさない)。ガードの削除は #2 の受け入れ条件に入れてある
