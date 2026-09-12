@@ -35,12 +35,12 @@
 
 ## フェーズ2: 永続ドキュメントの作成
 
-- [ ] `docs/prd.md`
-- [ ] `docs/functional-design.md`
-- [ ] `docs/architecture.md`
-- [ ] `docs/repository-structure.md`
-- [ ] `docs/development-guidelines.md`
-- [ ] `docs/glossary.md`
+- [x] `docs/prd.md`
+- [x] `docs/functional-design.md`
+- [x] `docs/architecture.md`
+- [x] `docs/repository-structure.md`
+- [x] `docs/development-guidelines.md`
+- [x] `docs/glossary.md`
 
 ## フェーズ2.5: スポーク開発構成ルール
 
