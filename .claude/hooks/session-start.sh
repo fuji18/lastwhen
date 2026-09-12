@@ -16,13 +16,27 @@ SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || ech
 cd "${CLAUDE_PROJECT_DIR:-.}"
 
 # --- 1) 依存関係(リモート環境のみ。devcontainer では post_create.sh が担う) ---
-# node_modules があればスキップし、resume / clear のたびの再インストールを避ける
-if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ -f package.json ] && [ ! -d node_modules ]; then
-  # stdout はセッションのコンテキストに注入されるため、ログは stderr へ逃がす
-  if npm install --no-audit --no-fund 1>&2; then
-    echo "依存関係: npm install 完了(リモート環境)"
-  else
-    echo "⚠️ npm install に失敗した。検証コマンドの実行前に原因を確認すること"
+# 2 系統ある: ハーネスの Node 依存(husky / lint-staged / secretlint)と、アプリの Dart 依存。
+# どちらも導入済みならスキップし、resume / clear のたびの再インストールを避ける。
+# stdout はセッションのコンテキストに注入されるため、ログは stderr へ逃がす。
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+  if [ -f package.json ] && [ ! -d node_modules ]; then
+    if npm install --no-audit --no-fund 1>&2; then
+      echo "依存関係: npm install 完了(ハーネス / リモート環境)"
+    else
+      echo "⚠️ npm install に失敗した。git hook(husky)と secretlint が無効なまま進む"
+    fi
+  fi
+  if [ -f pubspec.yaml ] && [ ! -d .dart_tool ]; then
+    if command -v flutter >/dev/null 2>&1; then
+      if flutter pub get 1>&2; then
+        echo "依存関係: flutter pub get 完了(リモート環境)"
+      else
+        echo "⚠️ flutter pub get に失敗した。検証コマンドの実行前に原因を確認すること"
+      fi
+    else
+      echo "⚠️ pubspec.yaml があるが Flutter SDK が見つからない。検証コマンドは実行できない"
+    fi
   fi
 fi
 
@@ -140,10 +154,10 @@ fi
 # しきい値と判断材料・再導入手順は .claude/docs/serena-reintroduction.md を参照
 # (.mcp.json には context7 等の他サーバーもあるため、serena エントリの有無で判定する)
 if [ "$SOURCE" = "startup" ] && ! grep -qs '"serena"' .mcp.json; then
-  TS_FILES="$(git ls-files '*.ts' '*.tsx' 2>/dev/null | wc -l)"
-  TS_LOC="$(git ls-files '*.ts' '*.tsx' 2>/dev/null | xargs -r cat 2>/dev/null | wc -l)"
-  if [ "${TS_LOC:-0}" -gt 30000 ] || [ "${TS_FILES:-0}" -gt 300 ]; then
-    echo "コード規模が serena MCP 再導入の目安を超えた(TS: ${TS_LOC} 行 / ${TS_FILES} ファイル)。.claude/docs/serena-reintroduction.md を読み、再導入をユーザーに提案すること"
+  DART_FILES="$(git ls-files '*.dart' 2>/dev/null | wc -l)"
+  DART_LOC="$(git ls-files '*.dart' 2>/dev/null | xargs -r cat 2>/dev/null | wc -l)"
+  if [ "${DART_LOC:-0}" -gt 30000 ] || [ "${DART_FILES:-0}" -gt 300 ]; then
+    echo "コード規模が serena MCP 再導入の目安を超えた(Dart: ${DART_LOC} 行 / ${DART_FILES} ファイル)。.claude/docs/serena-reintroduction.md を読み、再導入をユーザーに提案すること"
   fi
 fi
 
