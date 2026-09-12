@@ -19,7 +19,9 @@
   },
   "containerEnv": {
     "LOCAL_GH_TOKEN": "${localEnv:GH_TOKEN}",
-    "FLUTTER_ROOT": "/opt/flutter",
+    "FLUTTER_ROOT": "/opt/flutter"
+  },
+  "remoteEnv": {
     "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${containerEnv:PATH}"
   },
   "customizations": {
