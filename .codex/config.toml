@@ -28,3 +28,13 @@ network_access = false
 # 変更する場合だけ次のコメントを外す(プロジェクト裁量)。
 # model = "..."
 # model_reasoning_effort = "..."
+
+# MCP サーバ。Claude 側(.mcp.json)と同じ Context7 を Codex にも通す。
+# 注意: 上の network_access = false は Codex 自身のシェル実行に効くもので、
+# MCP サーバ(npx で起動する別プロセス)はこの制限の対象外。
+[mcp_servers.context7]
+command = "npx"
+args = [
+    "-y",
+    "@upstash/context7-mcp",
+]

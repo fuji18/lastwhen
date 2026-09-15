@@ -11,6 +11,24 @@
 > スクリプト側を直すのではなくこのファイルを残す形で整合を取っている。
 > 記入例やコストモデルなど、テンプレート開発向けの資料は削除済み(原本はテンプレートリポジトリにある)。
 
+## 2026-09-15
+
+- **Codex CLI 用のハーネス層を追加**(`.codex/agents/` / `.codex/hooks/` / `.codex/hooks.json` /
+  `.agents/skills/`)。`.claude/` の subagent 定義・SessionStart hook・スキル/コマンドを
+  Codex が読める形式(TOML / `AGENTS.md` 系のスキル)へ写像したもの
+  - `.codex/hooks.json`: PreToolUse / PostToolUse は `.claude/settings.json` と同じ判定
+    スクリプト(`.claude/scripts/*.sh`)を直接指す。**判定の実体を二重化しない**ため
+  - ただし SessionStart だけは `.codex/hooks/session-start.sh` が
+    `.claude/hooks/session-start.sh` の**バイト同一のコピー**になっている(未解消)。
+    片方だけ直すと静かに乖離するので、`.claude/` 側を指すよう寄せるか、差分を持たせる
+    理由を明記するかを別途決める
+  - `.codex/config.toml` に Context7 の MCP サーバ定義を追加。`network_access = false` は
+    Codex 自身のシェル実行に効くもので、npx で起動する MCP サーバは対象外である旨を注記
+  - 生成時の一括置換で壊れていた参照を修正(`.Codex/` → `.claude/` / `Codex-opus-5` →
+    `claude-opus-5` / `Codex/*` ブランチ → `claude/*` / 属性表記のリンク先など)
+  - `.codex/hooks.json` の SessionStart に埋まっていたホスト固有の絶対パスを
+    `$CLAUDE_PROJECT_DIR` 相対へ修正。devcontainer では解決できなかった
+
 ## 2026-09-12
 
 - **技術スタックを Flutter / Dart に置換**(`/kickoff` フェーズ1)。
