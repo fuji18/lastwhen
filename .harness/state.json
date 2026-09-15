@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "model": "claude-opus-5",
+  "agent_teams_enabled": false,
+  "teammate_mode": null,
+  "initialized_at": "2026-09-15T11:08:24Z"
+}
