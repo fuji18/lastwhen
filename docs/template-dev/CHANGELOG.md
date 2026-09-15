@@ -13,6 +13,14 @@
 
 ## 2026-09-15
 
+- **`ci.yml` の `quality` ジョブから暫定ガードを削除**(#2)。`Check Flutter project presence`
+  step と、各 step に付いていた `if: steps.probe.outputs.present == 'true'`(5 箇所)を撤去した
+  - このガードは `pubspec.yaml` が無い間だけ検査を素通しさせるためのもので、`quality` が
+    ルールセット `protect-main` の required status check である以上、これが無いと
+    「Flutter プロジェクトを初期化する PR 自体がマージできない」デッドロックになっていた
+  - #2 で `pubspec.yaml` が入ったため役目を終えた。**削除したのはこの 6 箇所だけ**で、
+    secretlint 系の step(`Setup Node.js` 以降)は元から `if` を持たず、無変更
+
 - **Codex CLI 用のハーネス層を追加**(`.codex/agents/` / `.codex/hooks/` / `.codex/hooks.json` /
   `.agents/skills/`)。`.claude/` の subagent 定義・SessionStart hook・スキル/コマンドを
   Codex が読める形式(TOML / `AGENTS.md` 系のスキル)へ写像したもの

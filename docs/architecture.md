@@ -20,9 +20,9 @@
 |------|-----------|------|----------|
 | Material 3 | Flutter 同梱 | UI コンポーネント | 追加依存ゼロ。タッチターゲットとコントラストの既定値が出発点として妥当(**WCAG AA の充足は保証されない**。56dp と主要テキストのコントラストは個別に指定・検証する) |
 | Drift | ^2.x | ローカル DB(SQLite) | クエリがコンパイル時に型検査される。マイグレーションの仕組みが標準で付く |
-| sqlite3_flutter_libs | ^0.5.x | SQLite 本体のバンドル | Drift が各 OS で同一バージョンの SQLite を使うために要る |
+| sqlite3 | ^3.x | SQLite 本体のバンドル | Drift が各 OS で同一バージョンの SQLite を使うために要る。旧 sqlite3_flutter_libs は提供終了(0.6.0+eol)で、本体側のネイティブビルドフックに統合された |
 | path_provider | ^2.x | DB ファイルの配置先解決 | OS ごとのドキュメント領域を取得する標準手段 |
-| Riverpod (`flutter_riverpod`) | ^2.x | 状態管理・依存注入 | テスト時に `Clock` と `ItemRepository` を差し替えられる |
+| Riverpod (`flutter_riverpod`) | ^3.x | 状態管理・依存注入 | テスト時に `Clock` と `ItemRepository` を差し替えられる |
 | uuid | ^4.x | 項目 ID の採番 | 将来のクラウド同期(P2)で衝突しない ID が要る |
 | intl | **Flutter SDK が要求する版に合わせる** | 日付の日本語整形 | `2026年9月12日` 形式をロケール経由で出す |
 
@@ -291,7 +291,7 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
 | ライブラリ | 用途 | バージョン管理方針 |
 |-----------|------|-------------------|
 | `drift` / `drift_dev` | ローカル DB とコード生成 | キャレット(`^`)。**両者のバージョンを揃える** |
-| `sqlite3_flutter_libs` | SQLite 本体 | キャレット |
+| `sqlite3` | SQLite 本体 | キャレット |
 | `path_provider` | ファイル配置先 | キャレット |
 | `flutter_riverpod` | 状態管理 | キャレット |
 | `uuid` | ID 採番 | キャレット |
