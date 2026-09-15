@@ -77,8 +77,8 @@
 
 - `docs/ideas/`: 下書き・アイデア(自由形式。`/setup-project` が自動で読み込む)。プロジェクト開始の起点は `initial-requirements.md`
 - `docs/template-dev/`: **`CHANGELOG.md` のみ**。ハーネス(`.claude/` / `.husky/` / `.codex/` / `.github/workflows/` / `AGENTS.md`)を変更した PR で、CI の `record-hygiene` が更新を要求する。ディレクトリごと消せない理由は `docs/repository-structure.md`「特殊ディレクトリ」節
-- `docs/`: 正式版の永続ドキュメント6つ(PRD / 機能設計 / 技術仕様 / リポジトリ構造 / 開発ガイドライン / 用語集)。基本設計を記述し頻繁には更新しない「北極星」
-  - `docs/ui-design-guidelines.md`: 上記6つとは別枠のテンプレート同梱・横断ガイド(スタック非依存の UI 品質基準)。画面/UI を作る場合に参照し、**§7「実装への翻訳」表は Flutter / Material 3 で記入済み**(このプロジェクトの確定事項)
+- `docs/`: 正式版の永続ドキュメント(PRD / 機能設計 / 技術仕様 / リポジトリ構造 / 開発ガイドライン / 用語集)。基本設計を記述し頻繁には更新しない「北極星」
+  - `docs/ui-design-guidelines.md`: 上記とは別枠のテンプレート同梱・横断ガイド(スタック非依存の UI 品質基準)。画面/UI を作る場合に参照し、**§7「実装への翻訳」表は Flutter / Material 3 で記入済み**(このプロジェクトの確定事項)
   - `docs/ui-design-request-template.md`: AI に画面デザインを依頼するプロンプト雛形(ガイドライン §11 の単体版・記入例つき)
 - `lib/`: アプリ本体。`domain/` / `data/` / `state/` / `ui/` の 4 レイヤー。**依存は一方向で `domain/` は何にも依存しない**(`docs/repository-structure.md`)
 - `test/`: テスト。`lib/` と同じ階層を写す

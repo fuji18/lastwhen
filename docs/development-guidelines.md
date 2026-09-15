@@ -49,9 +49,9 @@ extension type const ItemId(String value) {}
 final last = lastDoneAt.toLocal();
 
 // ✅ 良い例: 判断の理由が書いてある
-// 夏時間のある地域では 1 日が 23/25 時間になる。時刻成分を残したまま
-// inDays を取ると 1 日ずれるため、深夜 0 時に正規化してから差を取る。
-final lastDate = DateTime(last.year, last.month, last.day);
+// ローカルの DateTime 同士の difference は実時間差になる。DST のある地域では
+// 1 日が 23/25 時間になり inDays がずれるため、暦日を UTC 上の点として持ち直す。
+final lastDate = DateTime.utc(last.year, last.month, last.day);
 ```
 
 - 公開 API には dartdoc(`///`)で**責務と制約**を書く
@@ -76,14 +76,27 @@ try {
   await repository.markDone(id, now);
 } catch (_) {}
 
-// ✅ 良い例: 失敗を状態として持ち上げる
+// ❌ 悪い例: 一覧そのものが消える
+// state は AsyncNotifier<List<ItemView>>。エラーにすると UI は一覧を失い、
+// 「保存失敗時も行は元の値のまま」という要件を満たせない。
+try {
+  await repository.markDone(id, now);
+} on Exception catch (e, s) {
+  state = AsyncError(e, s);
+}
+
+// ✅ 良い例: 一覧は触らず、失敗を別チャネルへ持ち上げる
 try {
   await repository.markDone(id, now);
 } on Exception catch (e, s) {
   _log.warning('markDone failed', e, s);
-  state = AsyncError(e, s);   // UI が「保存できませんでした」を出す
+  // 一覧は watchAll() の購読結果だけを反映させる。state は変更しない。
+  ref.read(writeErrorProvider.notifier).state = '保存できませんでした。もう一度お試しください';
 }
 ```
+
+**`state` を `AsyncError` にしてよいのは、一覧そのものを表示できない場合だけ**
+(DB オープン失敗・購読の切断)。個々の書き込み失敗では state を触らない。
 
 - **楽観的 UI 更新を採らない。** 書き込み成功を待ってから画面を変える。
   ローカル SQLite では 100ms 要件を満たせる(技術仕様「パフォーマンス制約」)
@@ -155,6 +168,12 @@ Co-Authored-By: ...
 **PR ボディのテンプレート**は `.github/pull_request_template.md` にある。
 「検証」節には実際に回した検査だけをチェックする。回していないものにチェックを付けない。
 
+> **⚠️ 現在 `quality` ジョブは Flutter 系の検査をスキップしている。** `pubspec.yaml` が
+> 存在しない間だけ有効な暫定ガードで、**ジョブは緑になるが `dart format` /
+> `flutter analyze` / `flutter test` は 1 つも走っていない**(secretlint は Flutter の
+> 有無と無関係に常に走る)。**Flutter プロジェクトの初期化(#2)までは、CI の緑を
+> 品質の根拠にしない。** ガードの削除は #2 の受け入れ条件に含まれている。
+
 ### 記録の義務(CI が検査する)
 
 | 検査 | 落ちる条件 | 逃げ道ラベル |
@@ -171,7 +190,9 @@ Co-Authored-By: ...
 #### ユニットテスト
 
 - **対象**: `lib/domain/` 全体、`lib/state/`(リポジトリをフェイクに差し替える)
-- **カバレッジ目標**: ドメイン 100%、状態管理 80% 以上
+- **カバレッジの目安**: ドメイン 100%、状態管理 80% 以上。
+  **CI では検査しない**(`quality` ジョブは `flutter test` のみ)。数値は目安であり、
+  合否の判定はレビューが行う —— **ドメインの分岐にテストが無い変更は通さない**
 - **速度**: Flutter に依存しないため数ミリ秒で回る。実装中に繰り返し回す前提
 
 **必ず書くもの**:
@@ -183,12 +204,41 @@ group('経過日数の算出', () {
   test('月末をまたぐ', () { ... });
   test('うるう年の 2月28日 → 3月1日 は 2 日', () { ... });
   test('年をまたぐ', () { ... });
+  test('夏時間の切替日をまたいでも暦日どおり', () { ... });
   test('端末時計が巻き戻っても負数を返さない', () { ... });
 });
 ```
 
 > **経過日数のテストは削らない。** これがプロダクトの中心ロジックで、
 > 壊れてもクラッシュせず「静かに 1 日ずれる」形で出る。テストでしか気づけない。
+
+#### レイヤー依存の検査
+
+レイヤー違反は静かに増えるため、レビューではなくテストで止める。
+`test/architecture/layer_dependency_test.dart` が `lib/` のソースを読み、
+禁止された import が無いことを確認する(**追加依存は使わない**)。
+
+```dart
+test('domain は Flutter / Drift / Riverpod に依存しない', () {
+  final files = Directory('lib/domain')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'));
+  for (final f in files) {
+    final src = f.readAsStringSync();
+    for (final banned in const [
+      "import 'package:flutter/",
+      "import 'package:drift/",
+      "import 'package:flutter_riverpod/",
+    ]) {
+      expect(src, isNot(contains(banned)), reason: f.path);
+    }
+  }
+});
+```
+
+`ui → data` の禁止も同じ形で書く。`flutter test` で回るので、CI の `quality` ジョブが
+そのまま最終ゲートになる。
 
 #### 統合テスト
 
@@ -200,8 +250,9 @@ group('経過日数の算出', () {
 #### ウィジェットテスト
 
 - **対象**: 一覧の空状態、「やった」タップで確認ダイアログが出ないこと、
-  取り消し導線、削除の確認、フォントサイズ 200% でのレイアウト
-- 画面 3 つの主要導線を覆う。網羅は狙わない
+  取り消し導線(4 秒間・直近 1 件のみ)、保存失敗時に一覧が消えないこと、
+  削除の確認、フォントサイズ 200% でのレイアウト
+- 通常操作の画面 3 つの主要導線を覆う。網羅は狙わない(起動失敗のエラー画面は対象外)
 
 #### E2E テスト
 
