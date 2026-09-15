@@ -76,14 +76,27 @@ try {
   await repository.markDone(id, now);
 } catch (_) {}
 
-// ✅ 良い例: 失敗を状態として持ち上げる
+// ❌ 悪い例: 一覧そのものが消える
+// state は AsyncNotifier<List<ItemView>>。エラーにすると UI は一覧を失い、
+// 「保存失敗時も行は元の値のまま」という要件を満たせない。
+try {
+  await repository.markDone(id, now);
+} on Exception catch (e, s) {
+  state = AsyncError(e, s);
+}
+
+// ✅ 良い例: 一覧は触らず、失敗を別チャネルへ持ち上げる
 try {
   await repository.markDone(id, now);
 } on Exception catch (e, s) {
   _log.warning('markDone failed', e, s);
-  state = AsyncError(e, s);   // UI が「保存できませんでした」を出す
+  // 一覧は watchAll() の購読結果だけを反映させる。state は変更しない。
+  ref.read(writeErrorProvider.notifier).state = '保存できませんでした。もう一度お試しください';
 }
 ```
+
+**`state` を `AsyncError` にしてよいのは、一覧そのものを表示できない場合だけ**
+(DB オープン失敗・購読の切断)。個々の書き込み失敗では state を触らない。
 
 - **楽観的 UI 更新を採らない。** 書き込み成功を待ってから画面を変える。
   ローカル SQLite では 100ms 要件を満たせる(技術仕様「パフォーマンス制約」)

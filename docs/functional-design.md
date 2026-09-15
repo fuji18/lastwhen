@@ -135,8 +135,11 @@ abstract interface class ItemRepository {
 **責務**:
 - `ItemRepository` の Stream を購読し、UI 向けの表示モデルへ変換する
 - **経過日数の算出**(`Clock` を使う)
-- 「やった」の取り消し用に、直前の `lastDoneAt` を一時保持する
+- `Item` → `ItemView` への変換(**`lastDoneAt == null` → `NeverDone` の判定はここ**)
+- 「やった」の取り消し用に、直前の `lastDoneAt` を一時保持する。
+  **保持するのは直近 1 件のみ**で、別の項目を記録した時点で前の取り消し対象は破棄する
 - 入力バリデーション(項目名の長さ・空チェック)
+- 書き込み失敗を、**一覧の state とは別のチャネル**で UI へ伝える(下記「エラーの分類」)
 
 **インターフェース**:
 
@@ -149,6 +152,9 @@ class ItemListNotifier extends AsyncNotifier<List<ItemView>> {
   Future<void> undoMarkDone(ItemId id);
 }
 
+/// 書き込み失敗を一度きりのメッセージとして運ぶ。一覧の state とは分ける
+final writeErrorProvider = StateProvider<String?>((ref) => null);
+
 /// UI が描画に必要とするものだけを持つ。DateTime の解釈を UI に漏らさない
 class ItemView {
   final ItemId id;
@@ -159,6 +165,11 @@ class ItemView {
 ```
 
 **依存関係**: `ItemRepository`、`Clock`。
+
+> **書き込み失敗で `state` を `AsyncError` にしないこと。** `AsyncNotifier<List<ItemView>>` の
+> state をエラーにすると **UI が一覧そのものを失う**。「保存失敗時も行は元の値のまま」という
+> 要件(下記「状態ごとの表示」)と両立しないため、一覧は `watchAll()` の購読結果だけを反映させ、
+> 失敗は `writeErrorProvider` に載せて UI が `SnackBar` で出す。
 
 ### Clock(時刻提供)
 
@@ -423,7 +434,7 @@ SQLite ファイル 1 つ。配置はプラットフォーム既定のアプリ�
 | エラー種別 | 処理 | ユーザーへの表示 |
 |-----------|------|-----------------|
 | 入力バリデーション(空・長すぎ) | 保存せず、入力欄にとどまる | 「項目名を入力してください」/「50文字以内で入力してください」 |
-| DB 書き込み失敗 | 状態を変更しない。例外をログへ | 「保存できませんでした。もう一度お試しください」 |
+| DB 書き込み失敗 | 一覧の state を変更しない。例外をログへ出し、`writeErrorProvider` に載せる | 「保存できませんでした。もう一度お試しください」(`SnackBar`) |
 | DB オープン失敗(起動時) | 一覧を表示せずエラー画面へ | 「データを読み込めませんでした」+ 再試行 |
 | マイグレーション失敗 | 起動を続行しない。**データを消さない** | 「アプリの更新に失敗しました」+ 問い合わせ導線 |
 | 対象項目が存在しない(削除と同時操作) | 無視して一覧を再取得 | 表示しない |
@@ -432,15 +443,23 @@ SQLite ファイル 1 つ。配置はプラットフォーム既定のアプリ�
 > 記録の信頼性が本プロダクトの価値そのものであり、100ms の応答要件は
 > ローカル SQLite なら楽観更新なしでも満たせる。
 
+> **エラーの運び方: 一覧の state とは別のチャネルを使う。** 書き込み失敗で
+> `AsyncNotifier<List<ItemView>>` の state を `AsyncError` にすると、UI は一覧を失って
+> エラー画面に切り替わる。これは「行は元の値のまま」という要件と衝突する。
+> 一覧は `watchAll()` の購読結果だけを反映し、失敗は `writeErrorProvider`(一度きりの
+> メッセージ)に載せて `SnackBar` で出す。**state をエラーにしてよいのは、一覧そのものを
+> 表示できない場合(DB オープン失敗・購読の切断)だけ。**
+
 ## テスト戦略
 
 ### ユニットテスト
 
 | 対象 | 検証内容 |
 | --- | --- |
-| `elapsedDays` | 上記「検証すべき境界」の全ケース |
+| `elapsedDays` | 上記「検証すべき境界」の全ケース。**夏時間の切替日をまたぐケースを必ず含める**(`DateTime.utc` への取り直しが無いと落ちる) |
 | `ElapsedLabel` への分類 | 未実施 / 今日 / 昨日 / N日前 / 負数の防御 |
 | 項目名のバリデーション | 空 / 空白のみ / 1 文字 / 50 文字 / 51 文字 / 前後空白のトリム |
+| レイヤー依存の検査 | `lib/domain/` が Flutter / Drift / Riverpod を import していない。`lib/ui/` が `lib/data/` を import していない(`test/architecture/layer_dependency_test.dart`) |
 
 ### 統合テスト(インメモリ DB を使ったリポジトリ層)
 
