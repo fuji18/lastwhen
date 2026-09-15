@@ -144,7 +144,7 @@ PR(全ベース)と `main` への push で 3 ジョブが走る。
 ```
 lib/        アプリ本体。domain / data / state / ui の 4 レイヤー
 test/       テスト。lib/ と同じ階層を写す
-docs/       永続ドキュメント 6 つ + UI ガイドライン
+docs/       永続ドキュメント(北極星ドキュメント群)+ UI ガイドライン
 .steering/  作業単位の計画とタスクリスト(履歴としてコミットする)
 .claude/    Claude Code のハーネス設定
 .husky/     git hook(ベンダー非依存のガードレール)
