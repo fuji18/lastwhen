@@ -122,12 +122,16 @@ test/
 │   └── item_repository_impl_test.dart # インメモリ DB での CRUD と移行
 ├── ui/
 │   └── item_list_screen_test.dart     # ウィジェットテスト(主要導線)
+├── architecture/
+│   └── layer_dependency_test.dart     # レイヤー間 import の禁止を機械検査する
 └── support/
     ├── fake_clock.dart          # 任意の時刻を返す Clock
     └── fake_item_repository.dart
 ```
 
 - **`support/` はテスト用のフェイクとヘルパ置き場**。本体のコードから参照しない
+- **`architecture/` は `lib/` に対応しない唯一の例外**。特定のソースではなく
+  ディレクトリ間の依存規則そのものを検査する
 - **統合テストは `data/` のテストとして書く**。専用ディレクトリを分けない
   (MVP の規模では分割のコストが利得を上回る)
 
@@ -176,7 +180,7 @@ docs/
 | ファイル | 役割 |
 | --- | --- |
 | `pubspec.yaml` | Dart/Flutter の依存とアセット |
-| `analysis_options.yaml` | lint ルール。`flutter_lints` を継承して追加ルールを書く |
+| `analysis_options.yaml` | lint ルール。`flutter_lints` を継承して追加ルールを書く(**レイヤー間 import の禁止はここでは書けない**。`test/architecture/` で検査する) |
 | `package.json` | **ハーネス専用**。アプリのビルドに関与しない |
 | `.claude/settings.json` | hook と permissions。**Codex への委託禁止領域** |
 | `.claude/branch-policy.json` | ブランチ戦略の単一ソース。**委託禁止領域** |
@@ -225,8 +229,15 @@ docs/
 | `data` → `domain` | ✅ |
 | `data` → `state` / `ui` | ❌ |
 
-**この規則の検査**: `analysis_options.yaml` に import 制限のルールを書く。
-MVP の規模ではレビューでも追えるが、レイヤー違反は静かに増えるため機械化する。
+**この規則の検査**: `test/architecture/layer_dependency_test.dart` が `lib/` のソースを読み、
+禁止された import が無いことを確認する。MVP の規模ではレビューでも追えるが、
+レイヤー違反は静かに増えるため機械化する。
+
+> **`analysis_options.yaml` では書けない。** `flutter_lints` と標準 analyzer には
+> ディレクトリ間 import を禁止する lint が無く、実現には `custom_lint` 等の追加依存が要る
+> (「依存を増やさない」方針と衝突する)。**追加依存ゼロで済む通常のテストとして書く**ため、
+> `flutter test` にそのまま乗り、CI の `quality` ジョブが最終ゲートになる。
+> 実装例は `docs/development-guidelines.md`「レイヤー依存の検査」。
 
 ### モジュール間の依存
 

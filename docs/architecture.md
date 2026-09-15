@@ -220,8 +220,20 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
 - **フレームワーク**: `flutter_test`(`test` パッケージ互換)
 - **対象**: ドメインレイヤー全体(`elapsedDays`・`ElapsedLabel`・バリデーション)、
   状態管理レイヤー(リポジトリをフェイクに差し替える)
-- **カバレッジ目標**: ドメインレイヤー 100%、状態管理レイヤー 80% 以上。
-  UI レイヤーには数値目標を置かない(ウィジェットテストで主要導線を押さえる)
+- **カバレッジの目安**: ドメインレイヤー 100%、状態管理レイヤー 80% 以上。
+  UI レイヤーには数値を置かない(ウィジェットテストで主要導線を押さえる)。
+  **CI では計測しない** —— `quality` ジョブは `flutter test` のみで、閾値検査を持たない。
+  数値は設計の目安であり、合否はレビューが判定する(`development-guidelines.md`)
+
+### レイヤー依存の検査
+
+`test/architecture/layer_dependency_test.dart` が `lib/` のソースを読み、禁止された import
+(`domain` → Flutter / Drift / Riverpod、`ui` → `data`)が無いことを確認する。
+
+> **`analysis_options.yaml` では機械化できない。** `flutter_lints` と標準 analyzer に
+> ディレクトリ間 import を禁止する lint は無く、実現には `custom_lint` 等の追加依存が要る。
+> 「依存を増やさない」方針と衝突するため、**検査を通常のテストとして書く**。
+> `flutter test` で回るので CI の `quality` ジョブがそのまま最終ゲートになる。
 
 ### 統合テスト
 

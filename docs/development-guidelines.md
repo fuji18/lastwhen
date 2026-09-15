@@ -184,7 +184,9 @@ Co-Authored-By: ...
 #### ユニットテスト
 
 - **対象**: `lib/domain/` 全体、`lib/state/`(リポジトリをフェイクに差し替える)
-- **カバレッジ目標**: ドメイン 100%、状態管理 80% 以上
+- **カバレッジの目安**: ドメイン 100%、状態管理 80% 以上。
+  **CI では検査しない**(`quality` ジョブは `flutter test` のみ)。数値は目安であり、
+  合否の判定はレビューが行う —— **ドメインの分岐にテストが無い変更は通さない**
 - **速度**: Flutter に依存しないため数ミリ秒で回る。実装中に繰り返し回す前提
 
 **必ず書くもの**:
@@ -203,6 +205,34 @@ group('経過日数の算出', () {
 
 > **経過日数のテストは削らない。** これがプロダクトの中心ロジックで、
 > 壊れてもクラッシュせず「静かに 1 日ずれる」形で出る。テストでしか気づけない。
+
+#### レイヤー依存の検査
+
+レイヤー違反は静かに増えるため、レビューではなくテストで止める。
+`test/architecture/layer_dependency_test.dart` が `lib/` のソースを読み、
+禁止された import が無いことを確認する(**追加依存は使わない**)。
+
+```dart
+test('domain は Flutter / Drift / Riverpod に依存しない', () {
+  final files = Directory('lib/domain')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.dart'));
+  for (final f in files) {
+    final src = f.readAsStringSync();
+    for (final banned in const [
+      "import 'package:flutter/",
+      "import 'package:drift/",
+      "import 'package:flutter_riverpod/",
+    ]) {
+      expect(src, isNot(contains(banned)), reason: f.path);
+    }
+  }
+});
+```
+
+`ui → data` の禁止も同じ形で書く。`flutter test` で回るので、CI の `quality` ジョブが
+そのまま最終ゲートになる。
 
 #### 統合テスト
 
