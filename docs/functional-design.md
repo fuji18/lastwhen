@@ -179,7 +179,7 @@ abstract interface class Clock {
 **責務**: 2 つの時刻から**暦日の差**を求め、表示ラベルへ変換する。
 
 ```dart
-/// 暦日の差を返す。時刻成分は無視する
+/// 暦日の差を返す。時刻成分は無視し、負数は 0 に丸める
 int elapsedDays({required DateTime lastDoneAt, required DateTime now});
 
 /// 表示ラベルへ変換する
@@ -209,11 +209,13 @@ lastLocal = lastDoneAt.toLocal()
 nowLocal  = now.toLocal()
 ```
 
-#### ステップ2: 時刻成分を落として暦日にする
+#### ステップ2: 暦日を UTC 上の点として取り直す
+
+時刻成分を落とすだけでなく、**`DateTime.utc` で作り直す**。理由はステップ3 の注記。
 
 ```
-lastDate = DateTime(lastLocal.year, lastLocal.month, lastLocal.day)
-todayDate = DateTime(nowLocal.year,  nowLocal.month,  nowLocal.day)
+lastDate  = DateTime.utc(lastLocal.year, lastLocal.month, lastLocal.day)
+todayDate = DateTime.utc(nowLocal.year,  nowLocal.month,  nowLocal.day)
 ```
 
 #### ステップ3: 日数差を取る
@@ -222,9 +224,11 @@ todayDate = DateTime(nowLocal.year,  nowLocal.month,  nowLocal.day)
 elapsed = todayDate.difference(lastDate).inDays
 ```
 
-> **`Duration.inDays` を生の差分に使わないこと。** 夏時間のある地域では 1 日が 23 時間または
-> 25 時間になり、時刻成分を残したまま `inDays` を取ると 1 日ずれる。
-> ステップ2 で両方を深夜 0 時に正規化してからなら、この差分は暦日数と一致する。
+> **ローカルの `DateTime` 同士で `difference()` を取らないこと。** Dart の `difference()` は
+> 実時間差を返す。夏時間のある地域では 1 日が 23 時間または 25 時間になるため、
+> **深夜 0 時に正規化しても `inDays` は 1 日ずれる**(切替日をまたぐと 23 時間 → `inDays == 0`)。
+> ステップ2 で暦日を `DateTime.utc` の点として取り直せば 1 日が常に 24 時間になり、
+> この差分が暦日数と一致する。
 
 #### ステップ4: ラベルへ分類する
 
@@ -234,17 +238,27 @@ elapsed = todayDate.difference(lastDate).inDays
 | `elapsed == 0` | `今日` |
 | `elapsed == 1` | `昨日` |
 | `elapsed >= 2` | `{elapsed}日前` |
-| `elapsed < 0` | `今日` として扱う(端末時計が巻き戻った場合の防御) |
+| `elapsed < 0` | 起きない(`elapsedDays` が 0 に丸めるため。下記) |
+
+> **負数の丸めは `elapsedDays` の責務。** 端末時計の巻き戻しに対する防御を `elapsedDays` の中に
+> 閉じ、ラベル分類は「非負の日数 → ラベル」の純粋な写像に保つ。
+> **`lastDoneAt == null`(= `NeverDone`)の判定だけは `elapsedDays` の外**で行う。
+> 判定場所は `Item` → `ItemView` を変換する `ItemListNotifier`。
+> `elapsedDays` は non-null の日時 2 つだけを受け取り、`null` を知らない。
 
 **実装例**:
 
 ```dart
+/// 暦日の差を返す。端末時計が巻き戻った場合に備え、負数は 0 に丸める。
 int elapsedDays({required DateTime lastDoneAt, required DateTime now}) {
   final last = lastDoneAt.toLocal();
   final current = now.toLocal();
-  final lastDate = DateTime(last.year, last.month, last.day);
-  final todayDate = DateTime(current.year, current.month, current.day);
-  return todayDate.difference(lastDate).inDays;
+  // ローカルの DateTime 同士の difference は実時間差になる。DST のある地域では
+  // 1 日が 23/25 時間になり inDays がずれるため、暦日を UTC 上の点として持ち直す。
+  final lastDate = DateTime.utc(last.year, last.month, last.day);
+  final todayDate = DateTime.utc(current.year, current.month, current.day);
+  final diff = todayDate.difference(lastDate).inDays;
+  return diff < 0 ? 0 : diff;
 }
 ```
 

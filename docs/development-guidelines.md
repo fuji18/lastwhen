@@ -49,9 +49,9 @@ extension type const ItemId(String value) {}
 final last = lastDoneAt.toLocal();
 
 // ✅ 良い例: 判断の理由が書いてある
-// 夏時間のある地域では 1 日が 23/25 時間になる。時刻成分を残したまま
-// inDays を取ると 1 日ずれるため、深夜 0 時に正規化してから差を取る。
-final lastDate = DateTime(last.year, last.month, last.day);
+// ローカルの DateTime 同士の difference は実時間差になる。DST のある地域では
+// 1 日が 23/25 時間になり inDays がずれるため、暦日を UTC 上の点として持ち直す。
+final lastDate = DateTime.utc(last.year, last.month, last.day);
 ```
 
 - 公開 API には dartdoc(`///`)で**責務と制約**を書く
@@ -183,6 +183,7 @@ group('経過日数の算出', () {
   test('月末をまたぐ', () { ... });
   test('うるう年の 2月28日 → 3月1日 は 2 日', () { ... });
   test('年をまたぐ', () { ... });
+  test('夏時間の切替日をまたいでも暦日どおり', () { ... });
   test('端末時計が巻き戻っても負数を返さない', () { ... });
 });
 ```
