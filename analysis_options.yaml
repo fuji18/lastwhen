@@ -1,0 +1,14 @@
+# flutter_lints の推奨ルールを継承する。
+# Dart は lint と型チェックが分離できないため、analyze が両方を担う
+# (docs/architecture.md「開発ツール」)。CI は --fatal-infos で情報レベルも落とす。
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # コード生成物。git では追跡するが(docs/architecture.md「生成コードの扱い」)、
+    # 生成器の出力を lint の対象にはしない
+    - "**/*.g.dart"
+    - "**/*.drift.dart"
+    - build/**
+    - android/**
+    - ios/**

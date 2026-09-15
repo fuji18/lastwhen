@@ -346,3 +346,25 @@ flutter build apk --debug                        # 起動可能性の機械的�
 - 判断2 のフォールバック**以外**で依存のバージョンを変えたくなったとき
 - `lib/data/database/` `lib/data/migrations/` にファイルを作る必要が出たとき(#4 の領域)
 - `.github/workflows/ci.yml` で暫定ガード以外を変える必要が出たとき
+
+---
+
+## 検収で判明した追記(2026-09-15)
+
+### `analysis_options.yaml` の `exclude` は Flutter SDK が自動で書き戻す
+
+手順3 では `**/*.g.dart` / `**/*.drift.dart` の 2 つだけを指定したが、実物には
+`build/**` / `android/**` / `ios/**` が足されている。これは実装者が独自に足したものではなく、
+**`flutter analyze` を実行すると SDK が `Upgrading analysis_options.yaml to exclude build and
+platform directories.` と出して自動追記する**(code-reviewer が 3 行を消して再実行し、
+書き戻されることを実測で確認した)。
+
+→ **この 3 行は消さない。** 消しても `flutter analyze --fatal-infos` は通るが、次に誰かが
+`flutter analyze` を回した時点で同じ内容が戻り、差分だけが増える。手順3 の想定漏れであり、
+実装の逸脱ではない。以降のチケットでこの 3 行を「design.md に無い」という理由で消さないこと。
+
+### `pubspec.yaml` の `description`
+
+`flutter create` の生成値 `"A new Flutter project."` が残っていたため、検収フェーズで
+司令塔が `docs/product-requirements.md` 冒頭のタグラインに合わせて差し替えた。
+**ストア掲載名(判断6)とは別物**で、`publish_to: 'none'` のため配布物にも出ない。
