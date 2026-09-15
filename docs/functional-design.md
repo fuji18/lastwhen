@@ -30,7 +30,7 @@ UI は Drift の生成型を直接触らず、ドメインモデルだけを見�
 |------|------|----------|
 | 言語 | Dart 3 | Flutter の単一言語。null 安全と sealed class がドメインモデルに使える |
 | フレームワーク | Flutter(stable) | iOS / Android を単一コードベースで出せる。個人開発の工数が半分になる |
-| UI | Material 3(組み込み) | 追加依存ゼロでアクセシビリティとタッチターゲットの既定値が揃う(UI ガイドライン §7) |
+| UI | Material 3(組み込み) | 追加依存ゼロ。アクセシビリティとタッチターゲットの既定値が出発点として妥当(UI ガイドライン §7)。**56dp と主要テキストのコントラストは個別に指定・検証する** |
 | 状態管理 | Riverpod | 依存注入とテスト時の差し替え(特に `Clock`)が素直。`InheritedWidget` の定型句が消える |
 | データベース | Drift(SQLite) | 型安全なクエリがコンパイル時に検査される。P1 の履歴テーブル追加をマイグレーションとして扱える |
 | 日時 | 自前の `Clock` 抽象 | 経過日数の算出をテスト可能にする。`DateTime.now()` を直接呼ぶ箇所を 1 つに閉じ込める |
@@ -63,8 +63,8 @@ class Item {
 | `id` | UUID v4 の文字列。主キー |
 | `name` | NOT NULL。トリム後 1〜50 文字。空文字・空白のみは不可 |
 | `lastDoneAt` | NULL 許容。**NULL = 一度も記録がない**(F4 の「未実施」表示の根拠) |
-| `createdAt` / `updatedAt` | NOT NULL。UTC で保存し、表示時に端末のローカル時刻へ変換する |
-| `sortOrder` | NOT NULL。既定は登録時点の最大値 + 1 |
+| `createdAt` / `updatedAt` | NOT NULL。UTC で保存し、表示時に端末のローカル時刻へ変換する。`updatedAt` は**書き込みが起きた時刻**を表すので、「やった」の取り消しでも前進させる(巻き戻さない) |
+| `sortOrder` | NOT NULL。既定は `MAX(sort_order) + 1`。**MVP では常に登録順と一致する**(並び替えが無いため)。採番のために INSERT ごとに 1 本クエリが増えるが、P1 の F15(並び替え)で初めて意味を持つ列なので、そのコストは許容する |
 
 > **設計判断: 日時は UTC で保存する。** 端末のタイムゾーンが変わっても保存値がずれない。
 > 経過日数の算出だけがローカル時刻に依存するので、変換は表示側の 1 箇所に閉じる。
@@ -112,19 +112,32 @@ abstract interface class ItemRepository {
   /// 表示順に並んだ全項目を流す。DB の変更で自動的に再送出される
   Stream<List<Item>> watchAll();
 
-  Future<Item> add(String name);
-  Future<void> rename(ItemId id, String name);
+  /// 項目を追加する。id は UUID v4 でこの層が採番する
+  Future<Item> add(String name, {required DateTime now});
+
+  Future<void> rename(ItemId id, String name, {required DateTime now});
   Future<void> delete(ItemId id);
 
-  /// 最終実施日時を記録する。時刻は呼び出し元(Clock)が決める
+  /// 最終実施日時を記録する。`updatedAt` も `doneAt` と同じ値になる
   Future<void> markDone(ItemId id, DateTime doneAt);
 
   /// markDone の取り消し。直前の値に戻す
-  Future<void> restoreLastDoneAt(ItemId id, DateTime? previous);
+  Future<void> restoreLastDoneAt(
+    ItemId id,
+    DateTime? previous, {
+    required DateTime now,
+  });
 }
 ```
 
-**依存関係**: Drift の `AppDatabase` のみ。
+> **すべての書き込みが `now` を引数で受け取る理由**: データレイヤーは `Clock` に依存できない
+> (`architecture.md`「データレイヤー」の禁止事項)。`createdAt` / `updatedAt` は NOT NULL なので、
+> 時刻の出どころを呼び出し元に一本化しないと、この層で `DateTime.now()` を呼ぶしかなくなる。
+> `markDone` だけは例外で、記録時刻がそのまま `updatedAt` になるため引数は 1 つでよい。
+> **P1 の F16(最終実施日の手動修正)は `doneAt` が過去日になる**ので、
+> `setLastDoneAt(id, doneAt, {required now})` を別メソッドとして足す(MVP では作らない)。
+
+**依存関係**: Drift の `AppDatabase`、`uuid`(id の採番)。
 
 > **`watchAll` を Stream にする理由**: 記録・編集・削除のたびに UI が自力で再取得する設計だと、
 > 更新漏れの経路が機能の数だけ増える。Drift の `watch()` は DB 変更を購読できるので、
@@ -327,6 +340,7 @@ sequenceDiagram
     participant User as ユーザー
     participant UI as 登録画面
     participant N as ItemListNotifier
+    participant C as Clock
     participant R as ItemRepository
     participant DB as Drift
 
@@ -337,7 +351,9 @@ sequenceDiagram
         N-->>UI: 入力エラーを返す
         UI-->>User: 理由を表示(画面は閉じない)
     else 検証 OK
-        N->>R: add(name)
+        N->>C: now()
+        C-->>N: 現在時刻
+        N->>R: add(name, now: now)
         R->>DB: INSERT INTO items
         DB-->>R: 成功
         DB-->>N: watchAll() が新しい一覧を送出
@@ -350,7 +366,10 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> 一覧
+    [*] --> 起動
+    起動 --> 一覧: DB オープン成功
+    起動 --> 起動失敗: DB オープン失敗 / マイグレーション失敗
+    起動失敗 --> 起動: 再試行
     一覧 --> 一覧: 「やった」をタップ(遷移しない)
     一覧 --> 登録: 追加ボタン
     登録 --> 一覧: 保存 / キャンセル
@@ -361,7 +380,9 @@ stateDiagram-v2
     削除確認 --> 編集: キャンセル
 ```
 
-**画面は 3 つだけ**(一覧・登録・編集)。記録は遷移を伴わない —— これが「1 タップ」の実体。
+**通常操作の画面は 3 つだけ**(一覧・登録・編集)。記録は遷移を伴わない —— これが「1 タップ」の実体。
+起動失敗時のエラー画面は例外で、通常フローには現れない(エラー分類表の「DB オープン失敗」
+「マイグレーション失敗」に対応する)。
 
 ## UI設計
 
@@ -419,9 +440,11 @@ SQLite ファイル 1 つ。配置はプラットフォーム既定のアプリ�
 ## パフォーマンス最適化
 
 - **一覧は遅延生成する**(`ListView.builder`)。100 件で全行を同時に構築しない
-- **経過日数の算出は行の構築時に 1 回だけ**行う。`build` のたびに全件を再計算しない
-- **`Clock.now()` の呼び出しは一覧の再構築ごとに 1 回**にまとめる。行ごとに呼ぶと、
-  描画中に日付をまたいだ場合に行間で表示が食い違う
+- **経過日数は `List<Item>` → `List<ItemView>` の変換時に、`Clock.now()` を 1 回取って
+  全件分をまとめて算出する。** `ListView.builder` は完成した `ItemView` を描画するだけで、
+  `elapsedDays` も `Clock` も呼ばない
+- **`Clock.now()` を行ごとに呼ばない。** 描画中に日付をまたいだ場合、行間で基準時刻が
+  食い違って表示が矛盾する。変換 1 回につき `now` は 1 つ
 - **Drift のクエリは `watchAll` の 1 本**に絞る。行ごとの個別クエリを出さない
 - 起動時は DB オープンと初回クエリのみ。マイグレーションは必要なときだけ走る
 
