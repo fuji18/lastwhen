@@ -184,7 +184,9 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
 
 ### 供給網(サプライチェーン)
 
-- 依存は上記の 7 パッケージに限定する。**追加には設計上の理由を `design.md` に書く**
+- 依存は**上記の表に挙げたものに限定する**(`build_runner` / `drift_dev` / `flutter_lints` の
+  dev 依存を含む)。**追加には設計上の理由を `design.md` に書く**。
+  件数は書かない —— 増減のたびに複数箇所を直す羽目になる
 - Dependabot が `pub` / `npm` / `github-actions` / `devcontainers` を monthly で追従する。
   セキュリティ更新は interval と無関係に即時 PR が出る
 - Flutter SDK は公式リポジトリの stable ブランチから取得する(`post_create.sh`)。
