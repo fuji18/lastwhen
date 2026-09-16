@@ -41,3 +41,15 @@ design.md の §2〜§4 に従う。**設計判断が必要になったら実装
 ## 振り返り(申し送り)
 
 <!-- 実装後に司令塔が記入する -->
+
+## ハーネス修復(メインセッションが直接行う)
+
+<!-- main-edit-ok -->
+
+**このマーカーは AGENTS.md の修復のためだけに付けた。** `AGENTS.md` は Codex への委託禁止領域
+なので、司令塔か人間しか直せない。#5 の実装コード(`lib/` / `test/`)は従来どおり委託先が書く。
+
+- [x] `AGENTS.md` の verify-probe を Flutter 用に直す(`node_modules/.bin/eslint` は
+      この構成では永久に存在せず、委託が入口で必ず止まっていた)
+- [x] `AGENTS.md` §2 の検証コマンド表を npm から Flutter のコマンドへ差し替える
+- [x] `docs/template-dev/CHANGELOG.md` に記録する(CI の `record-hygiene` が要求する)

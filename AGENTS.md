@@ -83,7 +83,7 @@ touch .git/.probe 2>/dev/null && rm -f .git/.probe && echo GIT_WRITABLE || echo 
 
 ## 2. 検証コマンド
 
-<!-- verify-probe: exists node_modules/.bin/eslint -->
+<!-- verify-probe: exists .dart_tool/package_config.json -->
 
 > 上の行は `delegate-codex.sh` が読む機械可読マーカーです。**依存が入っているかどうかだけ**を確かめる 1 行を書いてください。
 >
@@ -105,16 +105,20 @@ touch .git/.probe 2>/dev/null && rm -f .git/.probe && echo GIT_WRITABLE || echo 
 > - 共通: 使える文字は英数と `.` `_` `/` `@` `=` `:` `+` `-`、区切りは半角スペース 1 個のみ(`;` `|` `&` `$` `` ` `` 引用符・リダイレクト・改行はすべて不可)、全体 200 文字以内
 > - **形式が合っていても安全になるわけではありません。** プローブの形式検査は「文字列が任意コマンドに化けること」を防ぐものです。このファイルも `node_modules/` も書き換えないでください
 
+**このプロジェクトは Flutter / Dart です。`npm` のスクリプトはアプリのビルド・検証に関与しません**(Node.js はハーネス専用 = husky / lint-staged / secretlint)。
+
 | 用途 | コマンド |
 | --- | --- |
-| lint | `npm run lint` |
-| 型チェック | `npm run typecheck` |
-| テスト | `npm test` |
-| フォーマット確認 | `npm run format:check` |
+| lint・型チェック | `flutter analyze --fatal-infos` |
+| テスト | `flutter test` |
+| フォーマット確認 | `dart format --output=none --set-exit-if-changed .` |
+| フォーマット適用 | `dart format <変更したファイル>` |
 
-**編集したら lint と format を回してください。** Claude の PostToolUse hook はあなたには効きません。
+Dart は lint と型チェックが分離できないため、`flutter analyze` が両方を担います(`docs/architecture.md`「開発ツール」)。
 
-**ただし対象は変更したファイルだけに限ってください。** `npm run format`(全体フォーマット)は回さないこと。司令塔が委託中に `docs/` を並行して書いている可能性があり、**その編集を書き潰します**。範囲を絞るのは行儀ではなく競合回避です。
+**編集したら analyze と format を回してください。** Claude の PostToolUse hook はあなたには効きません。
+
+**ただし対象は変更したファイルだけに限ってください。** `dart format .`(全体フォーマット)は回さないこと。司令塔が委託中に `docs/` を並行して書いている可能性があり、**その編集を書き潰します**。範囲を絞るのは行儀ではなく競合回避です。
 
 ---
 
