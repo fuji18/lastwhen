@@ -2,6 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 
 void main() {
+  test('DaysAgo は日数が同じなら等しい', () {
+    expect(const DaysAgo(42), const DaysAgo(42));
+    expect(const DaysAgo(42).hashCode, const DaysAgo(42).hashCode);
+    expect(const DaysAgo(42), isNot(const DaysAgo(7)));
+  });
+
   group('経過日数の算出', () {
     test('同じ日に記録して同じ日に表示すると 0 日', () {
       final last = DateTime.utc(2026, 1, 10, 3, 0);

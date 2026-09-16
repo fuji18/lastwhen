@@ -42,6 +42,14 @@ final class DaysAgo extends ElapsedLabel {
 
   /// 2 以上の暦日数。
   final int days;
+
+  // 同じ日数なら同じラベル。値等価が無いと、内容の変わっていない一覧が
+  // 毎回「変わった」と判定され、更新フィルタが効かない。
+  @override
+  bool operator ==(Object other) => other is DaysAgo && other.days == days;
+
+  @override
+  int get hashCode => days.hashCode;
 }
 
 /// 最終実施日を表示ラベルへ分類する。

@@ -11,6 +11,27 @@
 > スクリプト側を直すのではなくこのファイルを残す形で整合を取っている。
 > 記入例やコストモデルなど、テンプレート開発向けの資料は削除済み(原本はテンプレートリポジトリにある)。
 
+## 2026-09-16
+
+- **`AGENTS.md` の verify-probe を Flutter 用に差し替え**(#5)。
+  `exists node_modules/.bin/eslint` → `exists .dart_tool/package_config.json`
+  - テンプレート既定(Node.js / TypeScript)のまま残っていたもの。このプロジェクトに
+    eslint は入らないため、**プローブは永久に失敗し、`delegate-codex.sh impl` が
+    入口で必ず止まっていた**(「依存が未インストールの可能性があります」で exit)。
+    #5 の実装委託で初めて踏んだ
+  - `.dart_tool/package_config.json` は `flutter pub get` の生成物で、Dart における
+    `node_modules/` の等価物。存在確認だけでプロセスを起動しない `exists` 形式は据え置き
+
+- **`AGENTS.md` §2 の検証コマンド表を npm から Flutter へ差し替え**(#5)。
+  `npm run lint` / `npm run typecheck` / `npm test` / `npm run format:check` を
+  `flutter analyze --fatal-infos` / `flutter test` /
+  `dart format --output=none --set-exit-if-changed .` に置換した
+  - 委託先が読む唯一の検証手順がこの表。プローブだけ直しても、Codex は存在しない
+    npm スクリプトを叩いて「検証した」と報告しうる状態だった
+  - Node.js はハーネス専用(husky / lint-staged / secretlint)であることを表の前に明記した。
+    §1 の `npm ci`(husky の復旧手順)は Node ハーネスの話なので**変更していない**
+  - プローブの形式解説(許可される形式の一覧)はテンプレート所有の汎用説明なので触っていない
+
 ## 2026-09-15
 
 - **`ci.yml` の `quality` ジョブから暫定ガードを削除**(#2)。`Check Flutter project presence`
