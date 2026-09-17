@@ -107,18 +107,40 @@ touch .git/.probe 2>/dev/null && rm -f .git/.probe && echo GIT_WRITABLE || echo 
 
 **このプロジェクトは Flutter / Dart です。`npm` のスクリプトはアプリのビルド・検証に関与しません**(Node.js はハーネス専用 = husky / lint-staged / secretlint)。
 
+**`flutter` / `dart` のラッパーを呼ばないでください。** どちらも起動のたびに SDK ルート
+(`$FLUTTER_ROOT/bin/cache/`)へ `engine.stamp` / `engine.realm` / `.upgrade_lock` を書きます
+(`bin/internal/shared.sh` / `bin/internal/update_engine_version.sh`)。SDK はワークツリーの外に
+あるため、`--sandbox workspace-write` では**この書き込みが拒否され、ツールが起動する前に落ちます**。
+代わりに**キャッシュ内の Dart SDK を直接**呼んでください。パスは次の 1 行で解決できます:
+
+```bash
+DART="$(dirname "$(readlink -f "$(command -v flutter)")")/cache/dart-sdk/bin/dart"
+```
+
 | 用途 | コマンド |
 | --- | --- |
-| lint・型チェック | `flutter analyze --fatal-infos` |
-| テスト | `flutter test` |
-| フォーマット確認 | `dart format --output=none --set-exit-if-changed .` |
-| フォーマット適用 | `dart format <変更したファイル>` |
+| lint・型チェック | `"$DART" analyze --fatal-infos` |
+| フォーマット確認 | `"$DART" format --output=none --set-exit-if-changed <変更したファイル>` |
+| フォーマット適用 | `"$DART" format <変更したファイル>` |
+| テスト | **あなたは実行しません**(下記) |
 
-Dart は lint と型チェックが分離できないため、`flutter analyze` が両方を担います(`docs/architecture.md`「開発ツール」)。
+Dart は lint と型チェックが分離できないため、`analyze` が両方を担います(`docs/architecture.md`「開発ツール」)。
+`dart analyze` は `analysis_options.yaml` を読むので、`flutter_lints` の Flutter 固有ルール
+(`use_build_context_synchronously` 等)も `flutter analyze` と同じように検出します。
+
+### テストは実行しないでください
+
+`flutter test` はテストランナーとの通信に `127.0.0.1` のサーバーソケットを作ります。
+sandbox は `network_access = false` で、**ループバックだけを許可する設定は存在しません**。
+つまりテスト内容に関係なく、起動そのものができません。
+
+**テストはホスト側(司令塔 / CI)が回します。** あなたは
+「テストは sandbox では実行できないためホストに委ねた」と**報告に明記するだけ**にしてください。
+実行できなかったことを**失敗として報告しないでください** —— 環境の制約であって、成果物の問題ではありません。
 
 **編集したら analyze と format を回してください。** Claude の PostToolUse hook はあなたには効きません。
 
-**ただし対象は変更したファイルだけに限ってください。** `dart format .`(全体フォーマット)は回さないこと。司令塔が委託中に `docs/` を並行して書いている可能性があり、**その編集を書き潰します**。範囲を絞るのは行儀ではなく競合回避です。
+**ただし対象は変更したファイルだけに限ってください。** `"$DART" format .`(全体フォーマット)は回さないこと。司令塔が委託中に `docs/` を並行して書いている可能性があり、**その編集を書き潰します**。範囲を絞るのは行儀ではなく競合回避です。
 
 ---
 

@@ -11,6 +11,42 @@
 > スクリプト側を直すのではなくこのファイルを残す形で整合を取っている。
 > 記入例やコストモデルなど、テンプレート開発向けの資料は削除済み(原本はテンプレートリポジトリにある)。
 
+## 2026-09-17
+
+- **委託先の検証コマンドを sandbox で成立する形に差し替え**(#6 の申し送り)。
+  `AGENTS.md` §2 を `flutter analyze` / `flutter test` から
+  **キャッシュ内 Dart SDK の直叩き**(`"$DART" analyze --fatal-infos` /
+  `"$DART" format`)へ変更し、**テストは委託先で実行しない**ことを明記した
+  - 原因は 2 つあり、別々の制約だった。**(A)** `flutter` / `dart` のラッパーは
+    起動のたびに SDK ルートの `bin/cache/` へ `engine.stamp` / `engine.realm` /
+    `.upgrade_lock` を書く(`bin/internal/shared.sh` の `upgrade_flutter` と
+    `update_engine_version.sh`)。SDK はワークツリー外にあるため `workspace-write` が
+    書き込みを拒否し、**ツールが起動する前に落ちていた**。ファイル権限の問題ではない
+    (`/opt/flutter` は `vscode` 所有で書き込み可)。**(B)** `flutter test` は
+    テストランナーとの通信に `127.0.0.1` のサーバーソケットを作るが、sandbox は
+    `network_access = false`。**ループバックだけを許可する設定は codex-cli 0.154.0 に無い**
+    (`loopback` / `allow_local` / `allowed_domains` いずれも非対応)
+  - この 2 つのせいで **impl 委託が毎回 `status=failed` で返っていた**(#5 は B、#6 は A で停止)。
+    成果物の問題ではないのに失敗として返るため、検収の判断材料として機能していなかった
+  - `dart analyze --fatal-infos` が代替になることは実測で確認した。`flutter analyze` と
+    同じ結果を返し、`/opt/flutter` にも `$HOME` にも一切書き込まない。`analysis_options.yaml`
+    を読むので `flutter_lints` の Flutter 固有ルールも拾う(`use_build_context_synchronously`
+    違反を仕込んで検出を確認)
+  - **B は直していない。** `network_access = true` にすれば `flutter test` は動くが、
+    委託先に全ネットワークが開き「新規依存の追加を伴うタスクは委託対象外」という
+    設計前提が崩れる。テストはホスト(`/check` / CI)の担当とする分担に倒した
+
+- **`.codex/config.toml` に `writable_roots = ["/opt/flutter"]` を追加**(同上)。
+  `flutter` 固有のサブコマンドがどうしても要るとき用の保険
+  - **既定の経路はこれに依存しない。** 上の Dart SDK 直叩きだけで format と analyze は通る
+  - 引き受けるリスク: 委託先が SDK を書き換えられる。SDK は次回以降ホスト上でも実行されるため、
+    **ワークツリー外へ出る唯一の書き込み経路**になる。疑う理由があるときは
+    `git -C /opt/flutter status` で確かめる(Flutter SDK は git チェックアウト)
+
+- **司令塔側のルールに分担を明記**(同上)。`.claude/rules/lead/delegation-policy.md` と
+  `CLAUDE.md`「Codex への委託禁止領域」節に、**委託先はテストを回さない / テストは検収側が回す**
+  のが正規の分担であって委託の失敗ではない、と 1 項目ずつ追記した
+
 ## 2026-09-16
 
 - **`AGENTS.md` の verify-probe を Flutter 用に差し替え**(#5)。

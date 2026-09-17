@@ -69,6 +69,7 @@
 
 - **このプロジェクト固有のパス**: `lib/data/database/` と `lib/data/migrations/`(Drift のスキーマとマイグレーション。一度出荷した移行は修正できず、失敗はユーザーの記録の全損になる)
 - **一覧を出す**: `bash .claude/scripts/delegate-codex.sh --print-forbidden`(プロジェクト固有パスを含む全量)
+- **委託先はテストを回せない**(禁止領域とは別の話)。`flutter test` は 127.0.0.1 のソケットを作るが sandbox はネットワーク無効で、ループバックだけの許可は codex-cli に無い。委託先は format と analyze まで(`AGENTS.md` §2 が SDK ルートへ書かない Dart SDK 直叩きを指示)、**テストは `/check` と CI が回す**
 - **単一ソースは 2 系統**: 汎用項目 = `delegate-codex.sh` の `FORBIDDEN_PATHS` / プロジェクト固有パス = `AGENTS.md` §4 の `<!-- kickoff:delegation-forbidden-paths -->` マーカー内。**追加・変更はこの 2 箇所だけを直す**(出口検査が委託の開始時に両方を抽出してマージし、前後の内容ハッシュ差分を `status=failed` / `exit 2` で止める)
 - **振り分けの判断材料**(パス一覧と 1 行の理由)は `.claude/rules/lead/delegation-policy.md`
 - **機密の送信禁止(`.claude/codex-denylist.txt`)とは別の層。** denylist は該当ファイルが存在するだけで委託を止めるフェイルクローズ検査、こちらは司令塔が「どのチケットを渡すか」を決める振り分け判断
