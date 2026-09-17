@@ -20,9 +20,32 @@ sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
 # ネットワーク無効を既定にする。
-# 帰結: 新規依存の追加を伴うタスクは委託対象外になる。
-#       必要な依存は委託前に人間 / 司令塔がインストールしておくこと。
+# 帰結1: 新規依存の追加を伴うタスクは委託対象外になる。
+#        必要な依存は委託前に人間 / 司令塔がインストールしておくこと。
+# 帰結2: **`flutter test` は委託先で実行できない。** テストランナーとの通信に
+#        127.0.0.1 のサーバーソケットを作るため、内容に関係なく起動そのものが拒否される。
+#        codex-cli にループバックだけを許可する設定は無く(network_access は二値)、
+#        これを true にすると委託先に全ネットワークが開いて帰結1 の前提が崩れる。
+#        したがってテストはホスト側(司令塔 / CI)の担当とする(AGENTS.md §2)。
 network_access = false
+
+# Flutter SDK を書き込み可能にする。
+#
+# `flutter` / `dart` のラッパーは**起動のたびに** SDK ルートの bin/cache/ へ
+# engine.stamp / engine.realm / .upgrade_lock を書く(bin/internal/shared.sh の
+# upgrade_flutter と update_engine_version.sh)。SDK はワークツリーの外にあるため、
+# workspace-write では書き込みが拒否され、**ツールが起動する前に落ちる**。
+#
+# **既定の経路はこれに依存しない。** AGENTS.md §2 は SDK ルートへ書かない
+# キャッシュ内 Dart SDK の直叩き(`bin/cache/dart-sdk/bin/dart`)を指示しており、
+# それだけで format と analyze は通る。ここは `flutter` 固有のサブコマンドが
+# どうしても要るときのための保険で、**外すと壊れるのは AGENTS.md ではなくその例外だけ**。
+#
+# 引き受けるリスク: 委託先が SDK を書き換えられる。SDK は次回以降ホスト上でも
+# 実行されるため、これは**ワークツリー外へ出る唯一の書き込み経路**になる。
+# 委託後に SDK の改変を疑う理由があるなら `flutter doctor -v` ではなく
+# `git -C "$(dirname "$(dirname "$(command -v flutter)")")" status` で確かめること。
+writable_roots = ["/opt/flutter"]
 
 # model / model_reasoning_effort は既定のまま使う。
 # 変更する場合だけ次のコメントを外す(プロジェクト裁量)。
