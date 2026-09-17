@@ -5,6 +5,7 @@ import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_row.dart';
+import 'item_add_screen.dart';
 
 /// 一覧画面。**起動直後に出る唯一の画面**(`docs/functional-design.md`「画面遷移図」)。
 class ItemListScreen extends ConsumerWidget {
@@ -14,12 +15,17 @@ class ItemListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(itemListProvider);
+    // 追加導線は空状態(EmptyState 側にボタンがある)と読み込み中・失敗では出さない(判断5)。
+    final hasItems = switch (items) {
+      AsyncData(:final value) => value.isNotEmpty,
+      _ => false,
+    };
     return Scaffold(
       appBar: AppBar(title: const Text('LastWhen')),
       body: SafeArea(
         child: switch (items) {
           AsyncData(:final value) when value.isEmpty => EmptyState(
-            onAddPressed: _handleAddPressed,
+            onAddPressed: () => _openAddScreen(context),
           ),
           AsyncData(:final value) => _ItemList(items: value),
           AsyncError() => _LoadError(
@@ -28,14 +34,25 @@ class ItemListScreen extends ConsumerWidget {
           _ => const Center(child: CircularProgressIndicator()),
         },
       ),
+      floatingActionButton: hasItems
+          ? FloatingActionButton(
+              onPressed: () => _openAddScreen(context),
+              tooltip: '項目を追加',
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
+}
 
-  /// 新規登録への導線。
-  ///
-  /// **#6(項目の新規登録)で登録画面への遷移をここに入れる。** このチケットの
-  /// スコープは導線の配置までで、遷移先の画面がまだ無い(判断12)。
-  void _handleAddPressed() {}
+/// 登録画面へ遷移する。
+///
+/// 名前付きルートを使わない(design.md 判断4)。画面は一覧・登録・編集の 3 つだけで、
+/// ディープリンクも扱わないため、ルート表を持つと二重管理になるだけ。
+void _openAddScreen(BuildContext context) {
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(builder: (context) => const ItemAddScreen()),
+  );
 }
 
 /// 項目が 1 件以上あるときの一覧。
@@ -48,6 +65,8 @@ class _ItemList extends StatelessWidget {
   Widget build(BuildContext context) {
     // 100 件で全行を同時に構築しない(`docs/functional-design.md`「パフォーマンス最適化」)。
     return ListView.builder(
+      // FAB が最終行の「やった」ボタンに被らないようにする。56 + 16 × 2。
+      padding: const EdgeInsets.only(bottom: 88),
       itemCount: items.length,
       itemBuilder: (context, index) => ItemRow(
         item: items[index],
