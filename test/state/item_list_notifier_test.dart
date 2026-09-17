@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
+import 'package:lastwhen/domain/item_name.dart';
+import 'package:lastwhen/state/add_item_result.dart';
 import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
@@ -115,5 +117,111 @@ void main() {
     final second = await repository.add('歯ブラシ交換', now: now);
     final views = toItemViews([second, first], now: now);
     expect(views.map((view) => view.id), [second.id, first.id]);
+  });
+
+  group('addItem', () {
+    test('登録に成功すると未実施で日付のない項目が一覧に増える', () async {
+      final container = _container(repository, FakeClock(now));
+      expect(await container.read(itemListProvider.future), isEmpty);
+      final updated = Completer<List<ItemView>>();
+      container.listen(itemListProvider, (_, next) {
+        if (next case AsyncData(:final value) when value.length == 1) {
+          if (!updated.isCompleted) updated.complete(value);
+        }
+      });
+      await Future<void>.delayed(Duration.zero);
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('美容院');
+      expect(result, isA<AddItemSucceeded>());
+      final view = (await updated.future).single;
+      expect(view.name, '美容院');
+      expect(view.elapsed, isA<NeverDone>());
+      expect(view.lastDoneText, isNull);
+    });
+
+    test('前後に空白がある名前はトリムして保存される', () async {
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('  美容院  ');
+      expect(result, isA<AddItemSucceeded>());
+      expect((await repository.watchAll().first).single.name, '美容院');
+    });
+
+    for (final rawName in ['', '   ']) {
+      test('空文字または空白のみ（長さ ${rawName.length}）は保存されない', () async {
+        final container = _container(repository, FakeClock(now));
+        final result = await container
+            .read(itemListProvider.notifier)
+            .addItem(rawName);
+        expect(
+          result,
+          isA<AddItemRejected>().having(
+            (result) => result.reason,
+            'reason',
+            ItemNameReason.empty,
+          ),
+        );
+        expect(await repository.watchAll().first, isEmpty);
+        expect(await container.read(itemListProvider.future), isEmpty);
+      });
+    }
+
+    test('50文字の名前は保存できる', () async {
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('あ' * 50);
+      expect(result, isA<AddItemSucceeded>());
+      expect((await repository.watchAll().first).single.name, 'あ' * 50);
+    });
+
+    test('51文字の名前は保存されない', () async {
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('あ' * 51);
+      expect(
+        result,
+        isA<AddItemRejected>().having(
+          (result) => result.reason,
+          'reason',
+          ItemNameReason.tooLong,
+        ),
+      );
+      expect(await repository.watchAll().first, isEmpty);
+      expect(await container.read(itemListProvider.future), isEmpty);
+    });
+
+    test('作成日時と更新日時は Clock の時刻になる', () async {
+      final container = _container(repository, FakeClock(now));
+      expect(
+        await container.read(itemListProvider.notifier).addItem('美容院'),
+        isA<AddItemSucceeded>(),
+      );
+      final item = (await repository.watchAll().first).single;
+      expect(item.createdAt, now);
+      expect(item.updatedAt, now);
+    });
+
+    test('保存に失敗しても一覧は AsyncData のまま既存項目を保持する', () async {
+      await repository.add('歯ブラシ交換', now: now);
+      final container = _container(repository, FakeClock(now));
+      final before = await container.read(itemListProvider.future);
+      repository.writeError = StateError('write failed');
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('美容院');
+      expect(result, isA<AddItemFailed>());
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncData<List<ItemView>>>(),
+      );
+      expect(container.read(itemListProvider).requireValue, same(before));
+      expect((await repository.watchAll().first).map((item) => item.name), [
+        '歯ブラシ交換',
+      ]);
+    });
   });
 }

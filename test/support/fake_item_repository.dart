@@ -15,6 +15,12 @@ final class FakeItemRepository implements ItemRepository {
 
   int _idSequence = 0;
 
+  /// 非 null のとき、**すべての書き込み**がこの値を投げる。DB 書き込み失敗の再現用。
+  ///
+  /// **読み取り(`watchAll`)には影響しない。** 「一覧は生きたまま書き込みだけ失敗する」
+  /// という `docs/functional-design.md`「エラーハンドリング」の状況を作るため。
+  Object? writeError;
+
   @override
   Stream<List<Item>> watchAll() async* {
     yield _snapshot();
@@ -23,6 +29,7 @@ final class FakeItemRepository implements ItemRepository {
 
   @override
   Future<Item> add(String name, {required DateTime now}) async {
+    _failIfConfigured();
     final timestamp = _normalize(now);
     // 実装と同じ MAX + 1 採番にする(空なら 0)。
     final sortOrder =
@@ -46,17 +53,20 @@ final class FakeItemRepository implements ItemRepository {
 
   @override
   Future<void> rename(ItemId id, String name, {required DateTime now}) async {
+    _failIfConfigured();
     _update(id, (item) => _copy(item, name: name, updatedAt: _normalize(now)));
   }
 
   @override
   Future<void> delete(ItemId id) async {
+    _failIfConfigured();
     _items.removeWhere((item) => item.id == id);
     _emit();
   }
 
   @override
   Future<void> markDone(ItemId id, DateTime doneAt) async {
+    _failIfConfigured();
     final timestamp = _normalize(doneAt);
     _update(
       id,
@@ -70,6 +80,7 @@ final class FakeItemRepository implements ItemRepository {
     DateTime? previous, {
     required DateTime now,
   }) async {
+    _failIfConfigured();
     _update(
       id,
       (item) => _copy(
@@ -82,6 +93,14 @@ final class FakeItemRepository implements ItemRepository {
 
   /// 購読を終了する。テストの `addTearDown` で呼ぶ。
   Future<void> dispose() => _controller.close();
+
+  /// 書き込み失敗が仕込まれていれば投げる。
+  void _failIfConfigured() {
+    final error = writeError;
+    if (error != null) {
+      throw error;
+    }
+  }
 
   /// 対象が無ければ何もしない(実装の「対象なし」と揃える)。
   void _update(ItemId id, Item Function(Item) transform) {

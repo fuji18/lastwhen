@@ -127,4 +127,15 @@ void main() {
     expect(app.home, isA<ItemListScreen>());
     expect(find.byType(ItemListScreen), findsOneWidget);
   });
+
+  testWidgets('項目が2件あれば FAB が1つ出る', (tester) async {
+    await pumpItems(tester);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
+
+  testWidgets('空状態では FAB が出ない', (tester) async {
+    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
 }
