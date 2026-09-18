@@ -73,10 +73,25 @@ ItemRow の「やった」タップ
 落ちないため、**`clearSnackBars()` を使う**。記録・取り消し失敗・書き込み失敗のすべての表示経路で
 先に呼ぶ。
 
-**判断6: `SnackBar` の表示時間は既定(4 秒)に任せ、`duration` を明示しない。**
-`docs/functional-design.md`「状態ごとの表示」が「4 秒間(`SnackBar` の既定)」と書いている。
-明示すると Material の既定値と二重管理になる。テスト側は `const Duration(seconds: 4)` を
-`pump` して消えることを確認する。
+**判断6: `duration` は明示しない。ただし取り消し導線には `persist: false` を明示する。**
+`docs/functional-design.md`「状態ごとの表示」が「4 秒間(`SnackBar` の既定)」と書いているので、
+`duration` は既定(`_snackBarDisplayDuration` = 4 秒)に任せる。明示すると二重管理になる。
+
+**一方 `persist` は明示する。** Flutter 3.47 の `SnackBar` は
+`persist = persist ?? action != null`(`packages/flutter/lib/src/material/snack_bar.dart`)で、
+**アクションを付けると既定で自動消去されない** —— `ScaffoldMessengerState.build` のタイマーは
+`duration` 経過後に `snackBar.persist` を見て、true なら `hideCurrentSnackBar` を呼ばずに戻る
+(`packages/flutter/lib/src/material/scaffold.dart`)。受け入れ条件と
+`docs/product-requirements.md` F3 が要求しているのは「直後に **4 秒間**だけ出る」なので、
+取り消し導線には `persist: false` を明示する。
+失敗表示の `SnackBar` はアクションが無く既定で `false` になるため、そちらには書かない
+(書くと「なぜここにあるのか」が読めなくなる)。
+
+> **この判断は委託先の停止報告(1 回目の委託の `exit 1`)を受けて司令塔が下した。**
+> 当初の「既定に任せれば 4 秒で消える」は SDK の挙動を取り違えていた。委託先が推測で
+> `persist: false` を足さずに止めたのは正しい振る舞い。
+
+テスト側は `const Duration(seconds: 4)` を `pump` して消えることを確認する。
 
 **判断7: 画面遷移の前に `clearSnackBars()` を呼ぶ。**
 `ScaffoldMessenger` は `Navigator` の上にあるので、**何もしないと導線が遷移後も残る**
@@ -286,6 +301,8 @@ Future<void> _handleDone(BuildContext context, WidgetRef ref, ItemId id) async {
       messenger.showSnackBar(
         SnackBar(
           content: const Text('記録しました'),
+          // アクションを付けると persist が既定で true になり、4 秒で消えない(判断6)。
+          persist: false,
           action: SnackBarAction(
             label: '取り消す',
             onPressed: () => _handleUndo(messenger, ref, undo),

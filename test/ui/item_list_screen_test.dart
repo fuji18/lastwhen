@@ -5,6 +5,7 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
+import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_row.dart';
@@ -137,5 +138,112 @@ void main() {
     await tester.pumpWidget(_app(repository, FakeClock(now)));
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsNothing);
+  });
+  Finder row(String name) =>
+      find.ancestor(of: find.text(name), matching: find.byType(ItemRow));
+
+  Finder rowText(String name, String text) =>
+      find.descendant(of: row(name), matching: find.text(text));
+
+  Future<void> record(WidgetTester tester, String name) async {
+    await tester.tap(
+      find.descendant(of: row(name), matching: find.byType(DoneButton)),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> undo(WidgetTester tester) async {
+    await tester.tap(find.text('取り消す'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('記録で確認ダイアログが出ない', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('未実施の行を記録すると今日になる', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(rowText('歯ブラシ交換', '未実施'), findsNothing);
+    expect(rowText('歯ブラシ交換', '今日'), findsOneWidget);
+    expect(rowText('歯ブラシ交換', '2026年9月16日'), findsOneWidget);
+  });
+
+  testWidgets('記録後に取り消し導線が1つ出る', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('記録しました'), findsOneWidget);
+    expect(find.text('取り消す'), findsOneWidget);
+  });
+
+  testWidgets('未実施の記録を取り消すと未実施に戻り日付が消える', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    await undo(tester);
+    expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
+    expect(rowText('歯ブラシ交換', '今日'), findsNothing);
+    expect(rowText('歯ブラシ交換', '2026年9月16日'), findsNothing);
+  });
+
+  testWidgets('記録済みの行は取り消すと元の日付に戻る', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '美容院');
+    expect(rowText('美容院', '今日'), findsOneWidget);
+    await undo(tester);
+    expect(rowText('美容院', '4日前'), findsOneWidget);
+    expect(rowText('美容院', '2026年9月12日'), findsOneWidget);
+  });
+
+  testWidgets('2行続けて記録すると直近1件だけ取り消せる', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '美容院');
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('取り消す'), findsOneWidget);
+    await undo(tester);
+    expect(rowText('美容院', '今日'), findsOneWidget);
+    expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
+  });
+
+  testWidgets('取り消し導線は4秒で消える', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('取り消す'), findsNothing);
+  });
+
+  testWidgets('書き込み失敗は一覧を残して伝える', (tester) async {
+    await pumpItems(tester);
+    repository.writeError = StateError('write failed');
+    await record(tester, '歯ブラシ交換');
+    expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
+    expect(rowText('美容院', '4日前'), findsOneWidget);
+    expect(find.byType(ItemRow), findsNWidgets(2));
+    expect(find.text('保存できませんでした。もう一度お試しください'), findsOneWidget);
+  });
+
+  testWidgets('登録画面への遷移で取り消し導線を閉じる', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemAddScreen), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('記録と取り消しは画面遷移を伴わない', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(ItemListScreen), findsOneWidget);
+    expect(find.byType(ItemAddScreen), findsNothing);
+    await undo(tester);
+    expect(find.byType(ItemListScreen), findsOneWidget);
+    expect(find.byType(ItemAddScreen), findsNothing);
   });
 }

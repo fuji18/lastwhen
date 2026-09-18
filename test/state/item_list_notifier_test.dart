@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
+import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/add_item_result.dart';
 import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/state/mark_done_result.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -222,6 +224,133 @@ void main() {
       expect((await repository.watchAll().first).map((item) => item.name), [
         '歯ブラシ交換',
       ]);
+    });
+  });
+  group('記録と取り消し', () {
+    Future<ProviderContainer> ready({DateTime? previous, Clock? clock}) async {
+      final item = await repository.add('美容院', now: now);
+      if (previous != null) await repository.markDone(item.id, previous);
+      final container = _container(repository, clock ?? FakeClock(now));
+      await container.read(itemListProvider.future);
+      // async* が継続購読へ進んでから書き込む。
+      await Future<void>.delayed(Duration.zero);
+      return container;
+    }
+
+    Future<MarkDoneResult> record(ProviderContainer container) => container
+        .read(itemListProvider.notifier)
+        .markDone(container.read(itemListProvider).requireValue.single.id);
+
+    Future<ItemView> current(ProviderContainer container) async {
+      await Future<void>.delayed(Duration.zero);
+      return container.read(itemListProvider).requireValue.single;
+    }
+
+    test('記録すると Clock の現在日時が保存され今日になる', () async {
+      final container = await ready();
+      expect(await record(container), isA<MarkDoneSucceeded>());
+      final view = await current(container);
+      expect(view.elapsed, isA<Today>());
+      expect(view.lastDoneText, '2026年9月16日');
+      expect((await repository.watchAll().first).single.lastDoneAt, now);
+    });
+
+    test('未実施の取り消しハンドルは直前値が null', () async {
+      final container = await ready();
+      final result = await record(container) as MarkDoneSucceeded;
+      expect(result.undo.previousLastDoneAt, isNull);
+      expect(
+        result.undo.id,
+        container.read(itemListProvider).requireValue.single.id,
+      );
+    });
+
+    test('記録済みの取り消しハンドルは元の日時を保持する', () async {
+      final previous = DateTime.utc(2026, 9, 12, 3);
+      final container = await ready(previous: previous);
+      final result = await record(container) as MarkDoneSucceeded;
+      expect(result.undo.previousLastDoneAt, previous);
+    });
+
+    test('取り消すと未実施に戻り日付がなくなる', () async {
+      final container = await ready();
+      final result = await record(container) as MarkDoneSucceeded;
+      expect((await current(container)).elapsed, isA<Today>());
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .undoMarkDone(result.undo),
+        isA<UndoSucceeded>(),
+      );
+      final view = await current(container);
+      expect(view.elapsed, isA<NeverDone>());
+      expect(view.lastDoneText, isNull);
+    });
+
+    test('取り消すと直前の日付に戻る', () async {
+      final previous = DateTime.utc(2026, 9, 12, 3);
+      final container = await ready(previous: previous);
+      final result = await record(container) as MarkDoneSucceeded;
+      expect((await current(container)).elapsed, isA<Today>());
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .undoMarkDone(result.undo),
+        isA<UndoSucceeded>(),
+      );
+      final view = await current(container);
+      expect(view.elapsed, const DaysAgo(4));
+      expect(view.lastDoneText, '2026年9月12日');
+      expect((await repository.watchAll().first).single.lastDoneAt, previous);
+    });
+
+    test('一覧に無い ID は書き込まず無視する', () async {
+      final container = await ready();
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('書き込んだら失敗する');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .markDone(const ItemId('missing')),
+        isA<MarkDoneIgnored>(),
+      );
+      expect(await repository.watchAll().first, before);
+    });
+
+    test('記録失敗でも一覧は AsyncData のまま値を保持する', () async {
+      final container = await ready();
+      final before = container.read(itemListProvider).requireValue;
+      repository.writeError = StateError('write failed');
+      expect(await record(container), isA<MarkDoneFailed>());
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncData<List<ItemView>>>(),
+      );
+      expect(container.read(itemListProvider).requireValue, same(before));
+      expect((await repository.watchAll().first).single.lastDoneAt, isNull);
+    });
+
+    test('取り消し失敗では今日のまま残る', () async {
+      final container = await ready();
+      final result = await record(container) as MarkDoneSucceeded;
+      expect((await current(container)).elapsed, isA<Today>());
+      repository.writeError = StateError('write failed');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .undoMarkDone(result.undo),
+        isA<UndoFailed>(),
+      );
+      expect((await current(container)).elapsed, isA<Today>());
+      expect((await repository.watchAll().first).single.lastDoneAt, now);
+    });
+
+    test('記録時刻は Clock 経由で取得する', () async {
+      final clock = _CountingClock(now);
+      final container = await ready(clock: clock);
+      final before = clock.calls;
+      expect(await record(container), isA<MarkDoneSucceeded>());
+      expect(clock.calls, greaterThan(before));
     });
   });
 }
