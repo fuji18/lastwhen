@@ -11,7 +11,12 @@ import 'done_button.dart';
 /// ボタンを右端に置くのは片手操作で親指が届く範囲だから。
 class ItemRow extends StatelessWidget {
   /// 1 行を作る。
-  const ItemRow({required this.item, required this.onDonePressed, super.key});
+  const ItemRow({
+    required this.item,
+    required this.onDonePressed,
+    required this.onTap,
+    super.key,
+  });
 
   /// 表示する項目。
   final ItemView item;
@@ -19,60 +24,69 @@ class ItemRow extends StatelessWidget {
   /// 「やった」ボタンのタップ時の処理。
   final VoidCallback onDonePressed;
 
+  /// 行そのもののタップ時の処理(編集画面への遷移)。
+  ///
+  /// 削除の入口は編集画面だけ。一覧にスワイプ削除を置かない。
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lastDoneText = item.lastDoneText;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  item.name,
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                // 未実施の行には日付を出さない(`docs/glossary.md`「項目の表示状態」)。
-                if (lastDoneText != null) ...[
-                  const SizedBox(height: 4),
+    return InkWell(
+      // 行内の DoneButton は自分でタップを消費する。
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    lastDoneText,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    item.name,
+                    style: theme.textTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  // 未実施の行には日付を出さない(`docs/glossary.md`「項目の表示状態」)。
+                  if (lastDoneText != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      lastDoneText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Flexible にして、文字サイズを上げても横にはみ出さないようにする。
-          Flexible(
-            flex: 2,
-            child: Text(
-              elapsedText(item.elapsed),
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              // 行内で最大・最も太い。**強調はサイズとウェイトだけで作り、色を使わない**
-              // (MVP は状態を色で分けない。`docs/functional-design.md`「色の使い方」)。
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          DoneButton(onPressed: onDonePressed),
-        ],
+            const SizedBox(width: 12),
+            // Flexible にして、文字サイズを上げても横にはみ出さないようにする。
+            Flexible(
+              flex: 2,
+              child: Text(
+                elapsedText(item.elapsed),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                // 行内で最大・最も太い。**強調はサイズとウェイトだけで作り、色を使わない**
+                // (MVP は状態を色で分けない。`docs/functional-design.md`「色の使い方」)。
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            DoneButton(onPressed: onDonePressed),
+          ],
+        ),
       ),
     );
   }

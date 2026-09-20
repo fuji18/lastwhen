@@ -10,6 +10,7 @@ import '../../state/item_view.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_row.dart';
 import 'item_add_screen.dart';
+import 'item_edit_screen.dart';
 
 /// 一覧画面。**起動直後に出る唯一の画面**(`docs/functional-design.md`「画面遷移図」)。
 class ItemListScreen extends ConsumerWidget {
@@ -61,6 +62,18 @@ void _openAddScreen(BuildContext context) {
   );
 }
 
+/// 編集画面へ遷移する。**削除の入口でもある**(`docs/product-requirements.md` F7)。
+void _openEditScreen(BuildContext context, ItemView item) {
+  // ScaffoldMessenger は Navigator の上にあり、閉じないと遷移後も導線が残る(判断13)。
+  ScaffoldMessenger.of(context).clearSnackBars();
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (context) =>
+          ItemEditScreen(itemId: item.id, initialName: item.name),
+    ),
+  );
+}
+
 /// 項目が 1 件以上あるときの一覧。
 class _ItemList extends ConsumerWidget {
   const _ItemList({required this.items});
@@ -79,6 +92,7 @@ class _ItemList extends ConsumerWidget {
         return ItemRow(
           item: item,
           onDonePressed: () => _handleDone(context, ref, item.id),
+          onTap: () => _openEditScreen(context, item),
         );
       },
     );

@@ -7,6 +7,7 @@ import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/add_item_result.dart';
+import 'package:lastwhen/state/edit_item_result.dart';
 import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
@@ -351,6 +352,185 @@ void main() {
       final before = clock.calls;
       expect(await record(container), isA<MarkDoneSucceeded>());
       expect(clock.calls, greaterThan(before));
+    });
+  });
+  group('renameItem', () {
+    late Item item;
+    late ProviderContainer container;
+
+    setUp(() async {
+      item = await repository.add('美容院', now: DateTime.utc(2026, 9, 1, 3));
+      await repository.markDone(item.id, DateTime.utc(2026, 9, 12, 3));
+      container = _container(repository, FakeClock(now));
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    Future<RenameItemResult> rename(String name) =>
+        container.read(itemListProvider.notifier).renameItem(item.id, name);
+
+    test('名前を変えても最終実施日と経過日数は動かない', () async {
+      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      await Future<void>.delayed(Duration.zero);
+      final view = container.read(itemListProvider).requireValue.single;
+      expect(view.elapsed, const DaysAgo(4));
+      expect(view.lastDoneText, '2026年9月12日');
+      expect(
+        (await repository.watchAll().first).single.lastDoneAt,
+        DateTime.utc(2026, 9, 12, 3),
+      );
+    });
+
+    test('変更した名前が購読中の一覧に反映される', () async {
+      final updated = Completer<List<ItemView>>();
+      container.listen(itemListProvider, (_, next) {
+        if (next case AsyncData(:final value)
+            when value.single.name == 'シャンプー') {
+          if (!updated.isCompleted) updated.complete(value);
+        }
+      });
+      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      expect((await updated.future).single.name, 'シャンプー');
+    });
+
+    test('前後の空白をトリムする', () async {
+      expect(await rename('  美容院  '), isA<RenameItemSucceeded>());
+      expect((await repository.watchAll().first).single.name, '美容院');
+    });
+
+    for (final rawName in ['', '   ']) {
+      test('空文字または空白のみ（長さ ${rawName.length}）は保存しない', () async {
+        expect(
+          await rename(rawName),
+          isA<RenameItemRejected>().having(
+            (result) => result.reason,
+            'reason',
+            ItemNameReason.empty,
+          ),
+        );
+        expect((await repository.watchAll().first).single.name, '美容院');
+      });
+    }
+
+    test('51文字は保存しない', () async {
+      expect(
+        await rename('あ' * 51),
+        isA<RenameItemRejected>().having(
+          (result) => result.reason,
+          'reason',
+          ItemNameReason.tooLong,
+        ),
+      );
+      expect((await repository.watchAll().first).single.name, '美容院');
+    });
+
+    test('50文字は保存できる', () async {
+      expect(await rename('あ' * 50), isA<RenameItemSucceeded>());
+      expect((await repository.watchAll().first).single.name, 'あ' * 50);
+    });
+
+    test('一覧に無い ID は書き込まず他の項目も変えない', () async {
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('書き込んだら失敗する');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .renameItem(const ItemId('missing'), 'シャンプー'),
+        isA<RenameItemIgnored>(),
+      );
+      expect(await repository.watchAll().first, before);
+    });
+
+    test('保存失敗でも一覧は AsyncData のまま元の名前を保持する', () async {
+      final before = container.read(itemListProvider).requireValue;
+      repository.writeError = StateError('write failed');
+      expect(await rename('シャンプー'), isA<RenameItemFailed>());
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncData<List<ItemView>>>(),
+      );
+      expect(container.read(itemListProvider).requireValue, same(before));
+      expect((await repository.watchAll().first).single.name, '美容院');
+    });
+
+    test('更新日時は Clock の時刻になる', () async {
+      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      expect((await repository.watchAll().first).single.updatedAt, now);
+    });
+  });
+
+  group('deleteItem', () {
+    late Item item;
+    late Item other;
+    late ProviderContainer container;
+    late _CountingClock clock;
+
+    setUp(() async {
+      item = await repository.add('美容院', now: now);
+      other = await repository.add('歯ブラシ交換', now: now);
+      clock = _CountingClock(now);
+      container = _container(repository, clock);
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    Future<DeleteItemResult> delete() =>
+        container.read(itemListProvider.notifier).deleteItem(item.id);
+
+    test('削除すると購読中の一覧と保存先から消える', () async {
+      expect(await delete(), isA<DeleteItemSucceeded>());
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(itemListProvider).requireValue.map((view) => view.id),
+        [other.id],
+      );
+      expect((await repository.watchAll().first).map((item) => item.id), [
+        other.id,
+      ]);
+    });
+
+    test('残る項目の名前・最終実施日・並び順は変わらない', () async {
+      expect(await delete(), isA<DeleteItemSucceeded>());
+      final remaining = (await repository.watchAll().first).single;
+      expect(remaining.id, other.id);
+      expect(remaining.name, other.name);
+      expect(remaining.lastDoneAt, other.lastDoneAt);
+      expect(remaining.sortOrder, other.sortOrder);
+    });
+
+    test('一覧に無い ID は書き込まず件数も変えない', () async {
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('書き込んだら失敗する');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .deleteItem(const ItemId('missing')),
+        isA<DeleteItemIgnored>(),
+      );
+      expect(await repository.watchAll().first, before);
+    });
+
+    test('削除失敗でも一覧に対象が残る', () async {
+      final before = container.read(itemListProvider).requireValue;
+      repository.writeError = StateError('write failed');
+      expect(await delete(), isA<DeleteItemFailed>());
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncData<List<ItemView>>>(),
+      );
+      expect(container.read(itemListProvider).requireValue, same(before));
+      expect((await repository.watchAll().first).map((item) => item.id), [
+        item.id,
+        other.id,
+      ]);
+    });
+
+    test('削除処理は Clock を呼ばない', () async {
+      // 書き込み時点で止め、watchAll 再通知による表示変換の Clock 呼び出しを分離する。
+      repository.writeError = StateError('write failed');
+      final before = clock.calls;
+      expect(await delete(), isA<DeleteItemFailed>());
+      expect(clock.calls, before);
     });
   });
 }

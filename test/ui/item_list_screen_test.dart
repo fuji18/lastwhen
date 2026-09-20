@@ -6,6 +6,7 @@ import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
+import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_row.dart';
@@ -245,5 +246,22 @@ void main() {
     await undo(tester);
     expect(find.byType(ItemListScreen), findsOneWidget);
     expect(find.byType(ItemAddScreen), findsNothing);
+  });
+  testWidgets('やったボタンでは編集画面が開かない', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(ItemEditScreen), findsNothing);
+    expect(rowText('歯ブラシ交換', '今日'), findsOneWidget);
+  });
+
+  testWidgets('行タップで編集画面へ遷移すると取り消し導線が閉じる', (tester) async {
+    await pumpItems(tester);
+    await record(tester, '歯ブラシ交換');
+    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemEditScreen), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('取り消す'), findsNothing);
   });
 }
