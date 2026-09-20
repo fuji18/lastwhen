@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/item.dart';
 import '../domain/item_name.dart';
 import 'add_item_result.dart';
+import 'edit_item_result.dart';
 import 'item_view.dart';
 import 'mark_done_result.dart';
 import 'providers.dart';
@@ -115,6 +116,58 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
         stackTrace: stackTrace,
       );
       return const UndoFailed();
+    }
+  }
+
+  /// 項目名を変更する。**最終実施日は変わらない**(判断6)。
+  ///
+  /// 検証は登録と同じ `validateItemName`(`docs/product-requirements.md` F6)。
+  /// 一覧に無い ID は書き込まず [RenameItemIgnored] を返す(判断7)。
+  Future<RenameItemResult> renameItem(ItemId id, String rawName) async {
+    switch (validateItemName(rawName)) {
+      case InvalidItemName(:final reason):
+        return RenameItemRejected(reason);
+      case ValidItemName(:final value):
+        // 検証 → 存在確認の順(判断8)。
+        if (!_latestItems.any((item) => item.id == id)) {
+          return const RenameItemIgnored();
+        }
+        try {
+          await ref
+              .read(itemRepositoryProvider)
+              .rename(id, value, now: ref.read(clockProvider).now());
+          return const RenameItemSucceeded();
+        } catch (error, stackTrace) {
+          developer.log(
+            '項目名の変更に失敗しました',
+            name: 'lastwhen.state',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          return const RenameItemFailed();
+        }
+    }
+  }
+
+  /// 項目を削除する。**記録ごと消える。取り消せない。**
+  ///
+  /// 確認を取るのは UI の責務(`docs/product-requirements.md` F7 / 判断1)。
+  /// ここは確認済みの前提で呼ばれる。**`Clock` を使わない**(判断11)。
+  Future<DeleteItemResult> deleteItem(ItemId id) async {
+    if (!_latestItems.any((item) => item.id == id)) {
+      return const DeleteItemIgnored();
+    }
+    try {
+      await ref.read(itemRepositoryProvider).delete(id);
+      return const DeleteItemSucceeded();
+    } catch (error, stackTrace) {
+      developer.log(
+        '項目の削除に失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const DeleteItemFailed();
     }
   }
 }

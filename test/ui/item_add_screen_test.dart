@@ -5,6 +5,7 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/ui/item_name_error_text.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_row.dart';
