@@ -59,10 +59,12 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            // スクロールビューの中では高さが無限になるので min を明示する。
+            mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: _controller,

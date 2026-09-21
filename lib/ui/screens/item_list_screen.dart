@@ -7,6 +7,7 @@ import '../../domain/item.dart';
 import '../../state/mark_done_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
+import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_row.dart';
 import 'item_add_screen.dart';
@@ -36,7 +37,9 @@ class ItemListScreen extends ConsumerWidget {
           AsyncError() => _LoadError(
             onRetry: () => ref.invalidate(itemListProvider),
           ),
-          _ => const Center(child: CircularProgressIndicator()),
+          _ => const Center(
+            child: CircularProgressIndicator(semanticsLabel: '読み込み中'),
+          ),
         },
       ),
       floatingActionButton: hasItems
@@ -111,23 +114,26 @@ class _LoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              'データを読み込めませんでした',
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
+    return CenteredScrollable(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(
+            child: Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
             ),
-            const SizedBox(height: 24),
-            FilledButton(onPressed: onRetry, child: const Text('再試行')),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'データを読み込めませんでした',
+            style: theme.textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          FilledButton(onPressed: onRetry, child: const Text('再試行')),
+        ],
       ),
     );
   }

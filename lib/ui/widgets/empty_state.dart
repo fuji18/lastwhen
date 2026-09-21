@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'centered_scrollable.dart';
+
 /// 項目が 0 件のときの表示。
 ///
 /// **空状態そのものを新規登録への導線にする**(`docs/ui-design-guidelines.md` §7
@@ -14,39 +16,38 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
+    return CenteredScrollable(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(
+            child: Icon(
               Icons.inbox_outlined,
               size: 56,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'まだ項目がありません',
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'まだ項目がありません',
+            style: theme.textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '「最後にやったのはいつ?」を知りたいことを登録します',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 8),
-            Text(
-              '「最後にやったのはいつ?」を知りたいことを登録します',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onAddPressed,
-              icon: const Icon(Icons.add),
-              label: const Text('項目を追加'),
-            ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: onAddPressed,
+            icon: const Icon(Icons.add),
+            label: const Text('項目を追加'),
+          ),
+        ],
       ),
     );
   }
