@@ -481,6 +481,37 @@ tester.view.devicePixelRatio = 3;
 addTearDown(tester.view.reset);
 ```
 
+> **`tester.ensureSemantics()` のハンドルは、テスト本体の中で `handle.dispose()` を呼んで破棄する。**
+> **`addTearDown(handle.dispose)` は使えない。** Flutter はテスト本体を抜けた直後に
+> 「生きているハンドルが無いか」を検査し、`addTearDown` で登録した後始末はそれより後に走るため、
+> アサーションが全部通っていても `A SemanticsHandle was active at the end of the test.` で落ちる
+> (2026-09-21 の検収で実測)。
+
+読み上げラベル検出のヘルパー(`import 'package:flutter/semantics.dart';` が要る):
+
+```dart
+/// 画面に配信されているセマンティクスのラベルをすべて集める。
+///
+/// **`find.bySemanticsLabel` を使わない。** あれは render object 自身の
+/// `debugSemantics` を見るため、`Semantics` の注釈が親ノードへマージされる形
+/// (= このアプリの行)では引っかからない(2026-09-21 の検収で実測)。
+/// スクリーンリーダーへ実際に渡るノードを直接見る方が、検査したいものに近い。
+List<String> _semanticsLabels(WidgetTester tester) {
+  final labels = <String>[];
+  void visit(SemanticsNode node) {
+    if (node.label.isNotEmpty) {
+      labels.add(node.label);
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+  visit(tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!);
+  return labels;
+}
+```
+
 省略検出のヘルパー(`import 'package:flutter/rendering.dart';` が要る):
 
 ```dart
@@ -510,10 +541,10 @@ List<String> _ellipsizedTexts(WidgetTester tester) {
 | `行のタップ領域が 48dp 以上` | `tester.getSize(find.byType(ItemRow).first).height` が `greaterThanOrEqualTo(48)`(倍率 1.0 / 2.0) |
 | `やったボタンと項目追加ボタンが画面の右半分にある` | `tester.getCenter(...).dx` が `Scaffold` の幅の半分より大きい(`DoneButton` と `FloatingActionButton`) |
 | `dark テーマでも一覧が破綻しない` | `brightness: Brightness.dark` で描画。`Theme.of` の `brightness` が `Brightness.dark` であることを確かめたうえで、例外なし・省略なし |
-| `行に項目名と最終実施日と経過日数を含む読み上げラベルがある` | `tester.ensureSemantics()` のうえ `find.bySemanticsLabel('美容院、最終実施日は2026年9月12日、4日経過')` と `find.bySemanticsLabel('歯ブラシ交換、未実施')` が `findsOneWidget`。最後に `handle.dispose()` |
-| `やったボタンの読み上げラベルに項目名が含まれる` | 同上で `find.bySemanticsLabel('美容院をやったと記録')` が `findsOneWidget` |
+| `行に項目名と最終実施日と経過日数を含む読み上げラベルがある` | `tester.ensureSemantics()` のうえ `expect(_semanticsLabels(tester), contains('美容院、最終実施日は2026年9月12日、4日経過'))` と `contains('歯ブラシ交換、未実施')`。最後に `handle.dispose()` |
+| `やったボタンの読み上げラベルに項目名が含まれる` | 同上で `contains('美容院をやったと記録')` と `contains('歯ブラシ交換をやったと記録')` |
 | `空状態と読み込みエラーの装飾アイコンは読み上げ対象から外れている` | `find.ancestor(of: find.byIcon(Icons.inbox_outlined), matching: find.byType(ExcludeSemantics))` が `findsOneWidget`。エラー側は `Icons.error_outline` |
-| `読み込み中のインジケータにラベルがある` | 下記 `_NeverEmittingRepository` を使い、`pumpWidget` 後に `pumpAndSettle` せず `find.bySemanticsLabel('読み込み中')` が `findsOneWidget` |
+| `読み込み中のインジケータにラベルがある` | 下記 `_NeverEmittingRepository` を使い、`pumpWidget` 後に `pumpAndSettle` せず `expect(_semanticsLabels(tester), contains('読み込み中'))` |
 
 読み込み中・エラーの再現には、このテストファイル内にスタブを置く
 (`FakeItemRepository` は `final class` で継承できず、共有テストの契約も変えたくないため):
@@ -580,7 +611,18 @@ final class _StatementCounter extends QueryInterceptor {
 3. `final repository = ItemRepositoryImpl(db);` で 100 件 `add` する
 4. `counter.reset()`
 5. `App` を描画して `pumpAndSettle`
-6. `expect(counter.selects.where((s) => s.toLowerCase().contains('from items')).length, 1)`
+6. 次の形で 1 本だけであることを検証する:
+
+   ```dart
+   final itemSelects = counter.selects
+       .where((sql) => RegExp(r'from\s+"?items"?', caseSensitive: false).hasMatch(sql))
+       .length;
+   expect(itemSelects, 1);
+   ```
+
+   **`contains('from items')` では一致しない。** drift が実際に出すのは
+   `SELECT * FROM "items" ORDER BY "sort_order" ASC, "id" ASC;` で、
+   テーブル名が二重引用符で囲まれる(2026-09-21 の検収で実測)。
 7. `expect(counter.writes, isEmpty)`
 
 > ここで数えているのは「一覧を出すのに何本の SQL が要るか」。`ListView.builder` が
@@ -662,3 +704,52 @@ test('読み上げラベルが表記ゆれの禁止一覧に違反しない', ()
 - `pubspec.yaml` への依存追加
 - 新機能・P1 の前倒し(不足が見つかったら実装せず、司令塔へ報告する)
 - 実機計測(判断9)
+
+## 12. 検収で判明した修正(2026-09-21)
+
+初回の委託成果に対してホスト上で `flutter test` を回したところ **6 件が失敗**した。
+**いずれも実装の欠陥ではなく、§9 に書いたテストの検出方法の誤り**(= 司令塔の設計ミス)。
+実装側(`lib/ui/`)は 1 行も直さない。
+
+| 失敗したテスト | 原因 | 直し方 |
+| --- | --- | --- |
+| 行の読み上げラベル(100% / 200%) | §9.1 の検出方法が未検証だった | `_semanticsLabels`(セマンティクスツリーを直接辿る)へ置き換える |
+| 「やった」ボタンの読み上げラベル(100% / 200%) | 同上 | 同上 |
+| 読み込み中のインジケータのラベル | 同上 | 同上 |
+| `100件の一覧で発行されるクエリは watchAll の 1 本だけ` | drift は `FROM "items"` と二重引用符付きで出す。`contains('from items')` が一致しない | §9.2 の `RegExp(r'from\s+"?items"?')` へ置き換える |
+
+**実装が正しいことは診断で確認済み。** セマンティクスツリーの実体は次のとおりで、
+狙った 2 ノード構成(行の説明 + どの項目のボタンか)がそのまま配信されている:
+
+```
+#8  label="美容院、最終実施日は2026年9月12日、4日経過"
+  #9  label="美容院をやったと記録"
+#10 label="歯ブラシ交換、未実施"
+  #11 label="歯ブラシ交換をやったと記録"
+```
+
+発行される SQL も 1 本だけであることを確認済み:
+
+```
+SELECT * FROM "items" ORDER BY "sort_order" ASC, "id" ASC;
+```
+
+### 参考値(PR ボディへ転記する)
+
+- **100 件の初回描画: 67ms**(デバッグビルド / `flutter test` / Linux x64 devcontainer)
+  — 実機リリースビルドの基準(300ms)とは測定条件が違う。判断10 のとおり assert しない
+
+
+## 13. 検収 2 回目で判明した修正(2026-09-21)
+
+§12 の修正を入れて回したところ、クエリのテストは通り、**読み上げラベルの 5 件だけが残った**。
+失敗メッセージは `A SemanticsHandle was active at the end of the test.` で、
+**アサーションはすべて通っている**。原因は後始末の書き方 1 点だけ。
+
+| 失敗したテスト | 原因 | 直し方 |
+| --- | --- | --- |
+| 読み上げラベルの 5 件 | `addTearDown(handle.dispose)` は Flutter のハンドル検査より後に走る | テスト本体の末尾で `handle.dispose()` を直接呼ぶ |
+
+**`_semanticsLabels` は正しく動いている。** §12 で「`find.bySemanticsLabel` が原因」と書いたのは
+失敗メッセージを確認する前の推測で、誤りだった。置き換え自体は実害がなく、
+スクリーンリーダーへ実際に渡るノードを見る分だけ検査対象に近いのでそのまま残す。
