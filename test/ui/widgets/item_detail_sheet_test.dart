@@ -165,7 +165,6 @@ void main() {
 
   testWidgets('各行を独立して読み上げ、項目名を見出しにする', (tester) async {
     final handle = tester.ensureSemantics();
-    addTearDown(handle.dispose);
     await tester.pumpWidget(_app(_view()));
     for (final line in ['最後：14日前', '前回：7日間隔', 'だいぶ間が空いているかも。']) {
       expect(find.bySemanticsLabel(line), findsOneWidget);
@@ -174,5 +173,7 @@ void main() {
       tester.getSemantics(find.text('美容院')).flagsCollection.isHeader,
       isTrue,
     );
+    // addTearDown では終了時検証より後に破棄され、未破棄として落ちる。
+    handle.dispose();
   });
 }
