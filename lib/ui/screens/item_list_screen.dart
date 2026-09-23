@@ -9,7 +9,7 @@ import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/item_row.dart';
+import '../widgets/item_card.dart';
 import 'item_add_screen.dart';
 import 'item_edit_screen.dart';
 
@@ -92,7 +92,7 @@ class _ItemList extends ConsumerWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        return ItemRow(
+        return ItemCard(
           item: item,
           onDonePressed: () => _handleDone(context, ref, item.id),
           onTap: () => _openEditScreen(context, item),

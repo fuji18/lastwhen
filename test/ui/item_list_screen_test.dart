@@ -9,7 +9,7 @@ import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -44,7 +44,7 @@ void main() {
     expect(find.byType(EmptyState), findsOneWidget);
     expect(find.text('まだ項目がありません'), findsOneWidget);
     expect(find.text('項目を追加'), findsOneWidget);
-    expect(find.byType(ItemRow), findsNothing);
+    expect(find.byType(ItemCard), findsNothing);
   });
 
   testWidgets('空状態の内容は画面中央に配置される', (tester) async {
@@ -60,7 +60,7 @@ void main() {
     expect(center.dy, closeTo(screenSize.height / 2, kToolbarHeight));
   });
 
-  testWidgets('記録済みの行に日付が出て未実施の行には出ない', (tester) async {
+  testWidgets('記録済みのカードに日付が出て未実施のカードには出ない', (tester) async {
     await pumpItems(tester);
     expect(find.text('美容院'), findsOneWidget);
     expect(find.text('歯ブラシ交換'), findsOneWidget);
@@ -69,7 +69,7 @@ void main() {
     expect(find.text('未実施'), findsOneWidget);
     final neverDoneRow = find.ancestor(
       of: find.text('歯ブラシ交換'),
-      matching: find.byType(ItemRow),
+      matching: find.byType(ItemCard),
     );
     final texts = tester.widgetList<Text>(
       find.descendant(of: neverDoneRow, matching: find.byType(Text)),
@@ -77,7 +77,7 @@ void main() {
     expect(texts.map((text) => text.data), ['歯ブラシ交換', '未実施', 'やった']);
   });
 
-  testWidgets('各行のやったボタンは幅と高さが56dp以上', (tester) async {
+  testWidgets('各カードのやったボタンは幅と高さが56dp以上', (tester) async {
     await pumpItems(tester);
     final buttons = find.byType(DoneButton);
     expect(buttons, findsNWidgets(2));
@@ -98,18 +98,18 @@ void main() {
     expect(elapsed.style?.fontSize, greaterThan(lastDone.style!.fontSize!));
   });
 
-  testWidgets('一覧は必要な行だけ構築する builder を使う', (tester) async {
+  testWidgets('一覧は必要なカードだけ構築する builder を使う', (tester) async {
     await pumpItems(tester);
     final list = tester.widget<ListView>(find.byType(ListView));
     expect(list.childrenDelegate, isA<SliverChildBuilderDelegate>());
   });
 
-  testWidgets('やったボタンは各行の項目名より右にある', (tester) async {
+  testWidgets('やったボタンは各カードの項目名より右にある', (tester) async {
     await pumpItems(tester);
     for (final name in ['美容院', '歯ブラシ交換']) {
       final row = find.ancestor(
         of: find.text(name),
-        matching: find.byType(ItemRow),
+        matching: find.byType(ItemCard),
       );
       final button = find.descendant(
         of: row,
@@ -141,7 +141,7 @@ void main() {
     expect(find.byType(FloatingActionButton), findsNothing);
   });
   Finder row(String name) =>
-      find.ancestor(of: find.text(name), matching: find.byType(ItemRow));
+      find.ancestor(of: find.text(name), matching: find.byType(ItemCard));
 
   Finder rowText(String name, String text) =>
       find.descendant(of: row(name), matching: find.text(text));
@@ -165,7 +165,7 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
   });
 
-  testWidgets('未実施の行を記録すると今日になる', (tester) async {
+  testWidgets('未実施のカードを記録すると今日になる', (tester) async {
     await pumpItems(tester);
     await record(tester, '歯ブラシ交換');
     expect(rowText('歯ブラシ交換', '未実施'), findsNothing);
@@ -190,7 +190,7 @@ void main() {
     expect(rowText('歯ブラシ交換', '2026年9月16日'), findsNothing);
   });
 
-  testWidgets('記録済みの行は取り消すと元の日付に戻る', (tester) async {
+  testWidgets('記録済みのカードは取り消すと元の日付に戻る', (tester) async {
     await pumpItems(tester);
     await record(tester, '美容院');
     expect(rowText('美容院', '今日'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
     expect(rowText('美容院', '2026年9月12日'), findsOneWidget);
   });
 
-  testWidgets('2行続けて記録すると直近1件だけ取り消せる', (tester) async {
+  testWidgets('カード2枚を続けて記録すると直近1件だけ取り消せる', (tester) async {
     await pumpItems(tester);
     await record(tester, '美容院');
     await record(tester, '歯ブラシ交換');
@@ -225,7 +225,7 @@ void main() {
     await record(tester, '歯ブラシ交換');
     expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
     expect(rowText('美容院', '4日前'), findsOneWidget);
-    expect(find.byType(ItemRow), findsNWidgets(2));
+    expect(find.byType(ItemCard), findsNWidgets(2));
     expect(find.text('保存できませんでした。もう一度お試しください'), findsOneWidget);
   });
 
@@ -254,7 +254,7 @@ void main() {
     expect(rowText('歯ブラシ交換', '今日'), findsOneWidget);
   });
 
-  testWidgets('行タップで編集画面へ遷移すると取り消し導線が閉じる', (tester) async {
+  testWidgets('カードタップで編集画面へ遷移すると取り消し導線が閉じる', (tester) async {
     await pumpItems(tester);
     await record(tester, '歯ブラシ交換');
     expect(find.byType(SnackBar), findsOneWidget);

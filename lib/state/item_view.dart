@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../domain/aging_stage.dart';
 // 別名を付ける: `baselineIntervalDays` / `previousIntervalDays` / `relativeElapsed`
 // はこのファイルのフィールド名(`ItemView` 判断7)と同じ名前(design.md の用語に揃えた結果)。
 // 衝突を避けるため常に `baseline.` を付けて呼ぶ。
@@ -28,12 +29,19 @@ final class ItemView {
     this.previousIntervalDays,
     this.baselineIntervalDays,
     this.relativeElapsed,
+    this.agingStage = AgingStage.fresh,
   });
 
   /// ドメインの [Item] を [now] 時点の表示モデルへ変換する。
   factory ItemView.from(Item item, {required DateTime now}) {
     final lastDoneAt = item.lastDoneAt;
     final baselineDays = baseline.baselineIntervalDays(item.recentDoneAts);
+    final relative = baseline.relativeElapsed(
+      elapsedDays: lastDoneAt == null
+          ? null
+          : elapsedDays(lastDoneAt: lastDoneAt, now: now),
+      baselineIntervalDays: baselineDays,
+    );
     return ItemView(
       id: item.id,
       name: item.name,
@@ -44,12 +52,8 @@ final class ItemView {
           : _lastDoneFormat.format(lastDoneAt.toLocal()),
       previousIntervalDays: baseline.previousIntervalDays(item.recentDoneAts),
       baselineIntervalDays: baselineDays,
-      relativeElapsed: baseline.relativeElapsed(
-        elapsedDays: lastDoneAt == null
-            ? null
-            : elapsedDays(lastDoneAt: lastDoneAt, now: now),
-        baselineIntervalDays: baselineDays,
-      ),
+      relativeElapsed: relative,
+      agingStage: agingStageOf(relative),
     );
   }
 
@@ -74,6 +78,9 @@ final class ItemView {
   /// 相対経過度(経過日数 ÷ 基準間隔)。基準間隔が null・未実施なら null。
   final double? relativeElapsed;
 
+  /// 経年ステージ。相対経過度から変換時に 1 回だけ算出する(ビルドのたびに再計算しない)。
+  final AgingStage agingStage;
+
   @override
   bool operator ==(Object other) =>
       other is ItemView &&
@@ -83,7 +90,8 @@ final class ItemView {
       other.lastDoneText == lastDoneText &&
       other.previousIntervalDays == previousIntervalDays &&
       other.baselineIntervalDays == baselineIntervalDays &&
-      other.relativeElapsed == relativeElapsed;
+      other.relativeElapsed == relativeElapsed &&
+      other.agingStage == agingStage;
 
   @override
   int get hashCode => Object.hash(
@@ -94,6 +102,7 @@ final class ItemView {
     previousIntervalDays,
     baselineIntervalDays,
     relativeElapsed,
+    agingStage,
   );
 }
 

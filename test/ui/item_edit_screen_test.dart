@@ -5,7 +5,7 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -61,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('行タップで現在の項目名が入った編集画面が開く', (tester) async {
+  testWidgets('カードタップで現在の項目名が入った編集画面が開く', (tester) async {
     await openEditScreen(tester, '美容院');
     expect(find.byType(ItemEditScreen), findsOneWidget);
     expect(
@@ -166,7 +166,7 @@ void main() {
     await openDeleteDialog(tester);
     await confirmDelete(tester);
     expect(find.byType(ItemEditScreen), findsNothing);
-    expect(find.byType(ItemRow), findsOneWidget);
+    expect(find.byType(ItemCard), findsOneWidget);
     expect(find.text('美容院'), findsNothing);
     expect(find.text('歯ブラシ交換'), findsOneWidget);
     expect((await repository.watchAll().first).single.name, '歯ブラシ交換');
@@ -178,7 +178,7 @@ void main() {
     await confirmDelete(tester);
     final remainingRow = find.ancestor(
       of: find.text('歯ブラシ交換'),
-      matching: find.byType(ItemRow),
+      matching: find.byType(ItemCard),
     );
     expect(remainingRow, findsOneWidget);
     expect(

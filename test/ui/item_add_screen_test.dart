@@ -8,7 +8,7 @@ import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/item_name_error_text.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -59,13 +59,13 @@ void main() {
     expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
   });
 
-  testWidgets('項目名だけを保存すると一覧に未実施で日付のない行が出る', (tester) async {
+  testWidgets('項目名だけを保存すると一覧に未実施で日付のないカードが出る', (tester) async {
     await openAddScreen(tester);
     await tester.enterText(find.byType(TextField), '美容院');
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
     expect(find.byType(ItemAddScreen), findsNothing);
-    expect(find.byType(ItemRow), findsOneWidget);
+    expect(find.byType(ItemCard), findsOneWidget);
     expect(find.text('美容院'), findsOneWidget);
     expect(find.text('未実施'), findsOneWidget);
     expect(find.textContaining('年'), findsNothing);

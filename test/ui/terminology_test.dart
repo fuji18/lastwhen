@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
+import 'package:lastwhen/domain/aging_stage.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/state/item_view.dart';
@@ -10,7 +11,7 @@ import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -94,7 +95,7 @@ void main() {
         await tester.pumpAndSettle();
         switch (screen) {
           case '一覧(項目あり)':
-            expect(find.byType(ItemRow), findsNWidgets(2));
+            expect(find.byType(ItemCard), findsNWidgets(2));
           case '一覧(空)':
             expect(find.byType(EmptyState), findsOneWidget);
           case '登録':
@@ -119,7 +120,7 @@ void main() {
 
     test('読み上げラベルが表記ゆれの禁止一覧に違反しない', () {
       final labels = [
-        itemRowSemanticsLabel(
+        itemCardSemanticsLabel(
           const ItemView(
             id: ItemId('never'),
             name: '歯ブラシ交換',
@@ -127,12 +128,21 @@ void main() {
             lastDoneText: null,
           ),
         ),
-        itemRowSemanticsLabel(
+        itemCardSemanticsLabel(
           const ItemView(
             id: ItemId('done'),
             name: '美容院',
             elapsed: DaysAgo(4),
             lastDoneText: '2026年9月12日',
+          ),
+        ),
+        itemCardSemanticsLabel(
+          const ItemView(
+            id: ItemId('aged'),
+            name: '風呂掃除',
+            elapsed: DaysAgo(14),
+            lastDoneText: '2026年9月2日',
+            agingStage: AgingStage.heavilyAged,
           ),
         ),
         doneButtonSemanticsLabel('美容院'),
