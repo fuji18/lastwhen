@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lastwhen/domain/aging_stage.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/state/item_view.dart';
@@ -76,6 +77,51 @@ void main() {
       expect(view.baselineIntervalDays, 7.0);
       // 経過日数 4 ÷ 基準間隔 7.0。
       expect(view.relativeElapsed, 4 / 7.0);
+    });
+  });
+  group('経年ステージ', () {
+    for (final entry in [
+      (DateTime.utc(2026, 8, 26, 3), AgingStage.heavilyAged),
+      (DateTime.utc(2026, 3, 6, 3), AgingStage.fresh),
+    ]) {
+      test('同じ14日前でも基準間隔によって ${entry.$2.name} になる', () {
+        final lastDoneAt = DateTime.utc(2026, 9, 2, 3);
+        final view = ItemView.from(
+          _item(lastDoneAt, recentDoneAts: [lastDoneAt, entry.$1]),
+          now: now,
+        );
+        expect(view.elapsed, const DaysAgo(14));
+        expect(view.agingStage, entry.$2);
+      });
+    }
+    test('記録1件は古びない', () {
+      final lastDoneAt = DateTime.utc(2026, 9, 12, 3);
+      expect(
+        ItemView.from(
+          _item(lastDoneAt, recentDoneAts: [lastDoneAt]),
+          now: now,
+        ).agingStage,
+        AgingStage.fresh,
+      );
+    });
+    test('未実施は古びない', () {
+      expect(ItemView.from(_item(null), now: now).agingStage, AgingStage.fresh);
+    });
+    test('経年ステージだけ違う表示モデルは等しくない', () {
+      const fresh = ItemView(
+        id: ItemId('item-1'),
+        name: '美容院',
+        elapsed: DaysAgo(14),
+        lastDoneText: '2026年9月2日',
+      );
+      const aged = ItemView(
+        id: ItemId('item-1'),
+        name: '美容院',
+        elapsed: DaysAgo(14),
+        lastDoneText: '2026年9月2日',
+        agingStage: AgingStage.heavilyAged,
+      );
+      expect(fresh, isNot(aged));
     });
   });
 }

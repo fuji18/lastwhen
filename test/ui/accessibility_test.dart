@@ -15,7 +15,7 @@ import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -211,7 +211,9 @@ void main() {
     }
 
     for (final scale in [1.0, 2.0]) {
-      testWidgets('文字サイズ ${scale * 100}% でやったは56dp以上、行は48dp以上', (tester) async {
+      testWidgets('文字サイズ ${scale * 100}% でやったは56dp以上、カードは48dp以上', (
+        tester,
+      ) async {
         _setScreenSize(tester);
         await seedItems();
         await tester.pumpWidget(
@@ -222,7 +224,7 @@ void main() {
         expect(size.width, greaterThanOrEqualTo(56));
         expect(size.height, greaterThanOrEqualTo(56));
         expect(
-          tester.getSize(find.byType(ItemRow).first).height,
+          tester.getSize(find.byType(ItemCard).first).height,
           greaterThanOrEqualTo(48),
         );
       });
@@ -258,7 +260,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        Theme.of(tester.element(find.byType(ItemRow).first)).brightness,
+        Theme.of(tester.element(find.byType(ItemCard).first)).brightness,
         Brightness.dark,
       );
       expect(_ellipsizedTexts(tester), isEmpty);
@@ -266,7 +268,7 @@ void main() {
     });
 
     for (final scale in [1.0, 2.0]) {
-      testWidgets('文字サイズ ${scale * 100}% で行に項目名と最終実施日と経過日数を含む読み上げラベルがある', (
+      testWidgets('文字サイズ ${scale * 100}% でカードに項目名と最終実施日と経過日数を含む読み上げラベルがある', (
         tester,
       ) async {
         _setScreenSize(tester);

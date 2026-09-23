@@ -1,29 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/aging_stage.dart';
 import '../../domain/elapsed_days.dart';
 import '../../state/item_view.dart';
+import '../theme/app_theme.dart';
+import 'aged_paper.dart';
 import 'done_button.dart';
 
 /// 横並びから縦積みへ切り替える文字倍率のしきい値。
 ///
 /// 1.3 未満なら「経過日数の実寸 + ボタン 56dp」を 360dp 幅に置いても項目名の取り分が
-/// 残る(1.29 倍で約 97dp)。1.3 以上では取り分が消えるので縦に積む(design.md 判断1)。
-const double itemRowStackThreshold = 1.3;
+/// 残る(1.29 倍で約 81dp)。1.3 以上では取り分が消えるので縦に積む(design.md 判断1)。
+const double itemCardStackThreshold = 1.3;
 
 /// しきい値を判定するときの基準フォントサイズ(dp)。
 ///
 /// 倍率そのものは取得できないので、基準サイズを渡して返り値と比べる。
 const double _referenceFontSize = 16;
 
-/// 一覧の 1 行。**このアプリで最も重要なコンポーネント。**
+/// 一覧のカード。**このアプリで最も重要なコンポーネント。**
 ///
 /// 通常の文字サイズでは「項目名 + 最終実施日」「経過日数」「やった」を横に並べ、
 /// 文字が大きいときは縦に積む(design.md 判断1)。どちらの並びでも
 /// **経過日数が最大・最も太く、絶対に省略されない**(`docs/functional-design.md`「UI設計」)。
+/// 経年ステージに応じて紙が古びる(`AgedPaperPainter`)。
+/// 古びは紙の面と装飾だけに掛け、テキストの色と大きさは変えない。
 /// ボタンを右端に置くのは片手操作で親指が届く範囲だから。
-class ItemRow extends StatelessWidget {
-  /// 1 行を作る。
-  const ItemRow({
+class ItemCard extends StatelessWidget {
+  /// カードを作る。
+  const ItemCard({
     required this.item,
     required this.onDonePressed,
     required this.onTap,
@@ -36,7 +41,7 @@ class ItemRow extends StatelessWidget {
   /// 「やった」ボタンのタップ時の処理。
   final VoidCallback onDonePressed;
 
-  /// 行そのもののタップ時の処理(編集画面への遷移)。
+  /// カードそのもののタップ時の処理(編集画面への遷移)。
   ///
   /// 削除の入口は編集画面だけ。一覧にスワイプ削除を置かない。
   final VoidCallback onTap;
@@ -44,15 +49,30 @@ class ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scaled = MediaQuery.textScalerOf(context).scale(_referenceFontSize);
-    final isStacked = scaled >= _referenceFontSize * itemRowStackThreshold;
-    return InkWell(
-      // 行内の DoneButton は自分でタップを消費する。
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: isStacked
-            ? _StackedLayout(item: item, onDonePressed: onDonePressed)
-            : _InlineLayout(item: item, onDonePressed: onDonePressed),
+    final isStacked = scaled >= _referenceFontSize * itemCardStackThreshold;
+    final palette = AgingPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: CustomPaint(
+        painter: AgedPaperPainter(
+          stage: item.agingStage,
+          colors: palette.colorsOf(item.agingStage),
+          seed: stableSeedOf(item.id.value),
+        ),
+        // インクを紙の上に描き、タップの波紋が隠れないようにする。
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(agedPaperCornerRadius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: isStacked
+                  ? _StackedLayout(item: item, onDonePressed: onDonePressed)
+                  : _InlineLayout(item: item, onDonePressed: onDonePressed),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -71,7 +91,7 @@ class _InlineLayout extends StatelessWidget {
       children: [
         Expanded(
           child: Semantics(
-            label: itemRowSemanticsLabel(item),
+            label: itemCardSemanticsLabel(item),
             excludeSemantics: true,
             child: Row(
               children: [
@@ -108,7 +128,7 @@ class _StackedLayout extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
-          label: itemRowSemanticsLabel(item),
+          label: itemCardSemanticsLabel(item),
           excludeSemantics: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,12 +170,14 @@ class _NameAndLastDone extends StatelessWidget {
       children: [
         Text(
           item.name,
-          style: theme.textTheme.titleMedium,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
           // 任意長の入力なので「絶対に省略しない」は成立しない。2 行まで許す(判断3)。
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        // 未実施の行には日付を出さない(`docs/glossary.md`「項目の表示状態」)。
+        // 未実施のカードには日付を出さない(`docs/glossary.md`「項目の表示状態」)。
         if (lastDoneText != null) ...[
           const SizedBox(height: 4),
           Text(
@@ -173,7 +195,7 @@ class _NameAndLastDone extends StatelessWidget {
   }
 }
 
-/// 経過日数。**行内で最大・最も太く、決して省略しない。**
+/// 経過日数。**カード内で最大・最も太く、決して省略しない。**
 class _Elapsed extends StatelessWidget {
   const _Elapsed({required this.item, required this.textAlign});
 
@@ -192,10 +214,11 @@ class _Elapsed extends StatelessWidget {
       // 折り返しも省略もしない。ここが切れると製品の中心価値が消える(判断2)。
       softWrap: false,
       overflow: TextOverflow.visible,
-      // **強調はサイズとウェイトだけで作り、色を使わない**
-      // (MVP は状態を色で分けない。`docs/functional-design.md`「色の使い方」)。
+      // 強調はサイズとウェイトで作る。経年変化は紙に掛け、経過日数の色は変えない。
+      // (`docs/functional-design.md`「色の使い方」)。
       style: theme.textTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.bold,
+        color: theme.colorScheme.onSurface,
       ),
     );
   }
@@ -212,13 +235,13 @@ String elapsedText(ElapsedLabel label) => switch (label) {
   DaysAgo(:final days) => '$days日前',
 };
 
-/// 行全体をスクリーンリーダーへ読み上げるための説明文。
+/// カード全体をスクリーンリーダーへ読み上げるための説明文。
 ///
 /// **数字だけにならないよう、単位と文脈を必ず含める**(Issue #9 受け入れ条件)。
 /// 画面には「4日前」としか出ないが、読み上げでは項目名と最終実施日を添える。
-String itemRowSemanticsLabel(ItemView item) {
+String itemCardSemanticsLabel(ItemView item) {
   final lastDoneText = item.lastDoneText;
-  return switch (item.elapsed) {
+  final label = switch (item.elapsed) {
     NeverDone() => '${item.name}、未実施',
     Today() => '${item.name}、最終実施日は今日',
     Yesterday() => '${item.name}、最終実施日は昨日',
@@ -228,7 +251,18 @@ String itemRowSemanticsLabel(ItemView item) {
           ? '${item.name}、$days日経過'
           : '${item.name}、最終実施日は$lastDoneText、$days日経過',
   };
+  final stageText = agingStageSemanticsText(item.agingStage);
+  return stageText == null ? label : '$label、状態は$stageText';
 }
 
 /// 「やった」ボタンの読み上げ文。**どの項目のボタンかを含める**(design.md 判断6)。
 String doneButtonSemanticsLabel(String itemName) => '$itemNameをやったと記録';
+
+/// 経年ステージの読み上げ文。fresh は何も足さない。
+String? agingStageSemanticsText(AgingStage stage) => switch (stage) {
+  AgingStage.fresh => null,
+  AgingStage.slightlyAged => '少し経過',
+  AgingStage.dueSoon => 'そろそろ',
+  AgingStage.aged => '経過',
+  AgingStage.heavilyAged => 'かなり経過',
+};

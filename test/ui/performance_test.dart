@@ -9,7 +9,7 @@ import 'package:lastwhen/data/item_repository_impl.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/item_repository.dart';
 import 'package:lastwhen/state/providers.dart';
-import 'package:lastwhen/ui/widgets/item_row.dart';
+import 'package:lastwhen/ui/widgets/item_card.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -43,18 +43,21 @@ void main() {
   }
 
   group('パフォーマンス', () {
-    testWidgets('項目100件でも構築される行は可視範囲に収まる', (tester) async {
+    testWidgets('項目100件でも構築されるカードは可視範囲に収まる', (tester) async {
       _setScreenSize(tester);
       await seedItems(repository);
       await tester.pumpWidget(_app(repository, FakeClock(now)));
       await tester.pumpAndSettle();
-      final count = find.byType(ItemRow, skipOffstage: false).evaluate().length;
+      final count = find
+          .byType(ItemCard, skipOffstage: false)
+          .evaluate()
+          .length;
       expect(count, greaterThan(0));
       expect(count, lessThan(20));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('100件をスクロールしても構築される行数が増え続けない', (tester) async {
+    testWidgets('100件をスクロールしても構築されるカード数が増え続けない', (tester) async {
       _setScreenSize(tester);
       await seedItems(repository);
       await tester.pumpWidget(_app(repository, FakeClock(now)));
@@ -62,7 +65,10 @@ void main() {
       await tester.fling(find.byType(ListView), const Offset(0, -2000), 3000);
       await tester.pumpAndSettle();
       expect(find.text('項目0'), findsNothing);
-      final count = find.byType(ItemRow, skipOffstage: false).evaluate().length;
+      final count = find
+          .byType(ItemCard, skipOffstage: false)
+          .evaluate()
+          .length;
       expect(count, greaterThan(0));
       expect(count, lessThan(20));
       expect(tester.takeException(), isNull);
@@ -83,7 +89,7 @@ void main() {
       counter.reset();
       await tester.pumpWidget(_app(realRepository, FakeClock(now)));
       await tester.pumpAndSettle();
-      expect(find.byType(ItemRow), findsWidgets);
+      expect(find.byType(ItemCard), findsWidgets);
       expect(
         counter.selects
             .where(
@@ -111,7 +117,7 @@ void main() {
       debugPrint(
         '[perf] 100件の初回描画: ${stopwatch.elapsedMilliseconds}ms (debug / widget test)',
       );
-      expect(find.byType(ItemRow), findsWidgets);
+      expect(find.byType(ItemCard), findsWidgets);
       // JIT とホスト性能の差があるため、実機の 300ms 基準は課さない。
       expect(stopwatch.elapsedMilliseconds, lessThan(5000));
       expect(tester.takeException(), isNull);
@@ -119,7 +125,7 @@ void main() {
   });
 }
 
-/// 一覧表示中に行ごとの追加クエリや書き込みが発生しないことを検証する。
+/// 一覧表示中にカードごとの追加クエリや書き込みが発生しないことを検証する。
 final class _StatementCounter extends QueryInterceptor {
   final List<String> selects = <String>[];
   final List<String> writes = <String>[];
