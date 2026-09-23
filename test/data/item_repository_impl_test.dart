@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/data/database/app_database.dart';
 import 'package:lastwhen/data/item_repository_impl.dart';
+import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_repository.dart';
 
@@ -88,8 +89,74 @@ void main() {
       await expectation;
     });
 
-    test('schemaVersion は 1', () {
-      expect(db.schemaVersion, 1);
+    test('schemaVersion は 2', () {
+      expect(db.schemaVersion, 2);
+    });
+
+    test(
+      'markDone は done_logs に 1 行追加し done_at が last_done_at と一致する',
+      () async {
+        final item = await repository.add('項目', now: t0);
+        await repository.markDone(item.id, t1);
+
+        final row = await db
+            .customSelect('SELECT item_id, done_at FROM done_logs')
+            .getSingle();
+
+        expect(row.read<String>('item_id'), item.id.value);
+        expect(row.read<int>('done_at'), t1.millisecondsSinceEpoch);
+      },
+    );
+
+    test('取り消すと done_logs の直近 1 行だけ消える', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.markDone(item.id, t2);
+      await repository.restoreLastDoneAt(item.id, t1, now: t2);
+
+      final rows = await db.customSelect('SELECT done_at FROM done_logs').get();
+
+      expect(rows, hasLength(1));
+      expect(rows.single.read<int>('done_at'), t1.millisecondsSinceEpoch);
+    });
+
+    test('未実施に戻す取り消しで done_logs が空になる', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.restoreLastDoneAt(item.id, null, now: t2);
+
+      final rows = await db.customSelect('SELECT * FROM done_logs').get();
+
+      expect(rows, isEmpty);
+    });
+
+    test('削除すると done_logs も外部キーの CASCADE で消える', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+
+      await repository.delete(item.id);
+
+      final rows = await db.customSelect('SELECT * FROM done_logs').get();
+      expect(rows, isEmpty);
+    });
+
+    test('done_logs への INSERT が失敗すると items も更新されない(トランザクション)', () async {
+      final item = await repository.add('項目', now: t0);
+      // done_logs への書き込みを失敗させ、トランザクションが巻き戻ることを確かめる。
+      await db.customStatement('DROP TABLE done_logs');
+
+      await expectLater(
+        () => repository.markDone(item.id, t1),
+        throwsA(anything),
+      );
+
+      final row = await db
+          .customSelect(
+            'SELECT last_done_at FROM items WHERE id = ?',
+            variables: [Variable.withString(item.id.value)],
+          )
+          .getSingle();
+      expect(row.read<int?>('last_done_at'), isNull);
     });
   });
 }
@@ -221,6 +288,72 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
 
       final items = await repository.watchAll().first;
       expect(items, isEmpty);
+    });
+
+    test('記録すると履歴に 1 件追加される', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.recentDoneAts, [t1]);
+    });
+
+    test('複数回記録すると履歴が新しい順に並ぶ', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.markDone(item.id, t2);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.recentDoneAts, [t2, t1]);
+    });
+
+    test('取り消すと履歴の直近 1 件だけ消える', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.markDone(item.id, t2);
+      await repository.restoreLastDoneAt(item.id, t1, now: t2);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.recentDoneAts, [t1]);
+    });
+
+    test('未実施に戻す取り消しで履歴が空になる', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.restoreLastDoneAt(item.id, null, now: t2);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.recentDoneAts, isEmpty);
+    });
+
+    test('履歴が 0 件の取り消しは何もしない(例外にならない)', () async {
+      final item = await repository.add('項目', now: t0);
+
+      await repository.restoreLastDoneAt(item.id, null, now: t1);
+
+      final items = await repository.watchAll().first;
+      expect(items.single.recentDoneAts, isEmpty);
+      expect(items.single.lastDoneAt, isNull);
+    });
+
+    test('直近 recentDoneAtsLimit 件までに絞られ新しい順に並ぶ', () async {
+      final item = await repository.add('項目', now: t0);
+      final doneAts = List.generate(
+        recentDoneAtsLimit + 2,
+        (i) => t0.add(Duration(days: i + 1)),
+      );
+      for (final doneAt in doneAts) {
+        await repository.markDone(item.id, doneAt);
+      }
+
+      final items = await repository.watchAll().first;
+      final expected = doneAts.reversed.take(recentDoneAtsLimit).toList();
+
+      expect(items.single.recentDoneAts, expected);
     });
   });
 }
