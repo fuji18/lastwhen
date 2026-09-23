@@ -76,7 +76,7 @@ class Item {
 
 ### ER図
 
-MVP は単一テーブル。点線は P1 で追加予定のテーブル(**MVP では作らない**)。
+MVP は `items` 単一テーブル。`done_logs` は v2 のマイグレーションで追加した(#20)。
 
 ```mermaid
 erDiagram
@@ -93,7 +93,7 @@ erDiagram
         text item_id FK
         integer done_at
     }
-    ITEMS ||..o{ DONE_LOGS : "P1 で追加"
+    ITEMS ||--o{ DONE_LOGS : "v2 で追加"
 ```
 
 ## コンポーネント設計
@@ -118,10 +118,12 @@ abstract interface class ItemRepository {
   Future<void> rename(ItemId id, String name, {required DateTime now});
   Future<void> delete(ItemId id);
 
-  /// 最終実施日時を記録する。`updatedAt` も `doneAt` と同じ値になる
+  /// 最終実施日時を記録する。`updatedAt` も `doneAt` と同じ値になる。
+  /// `done_logs` への追加と同一トランザクションで書く(#20)
   Future<void> markDone(ItemId id, DateTime doneAt);
 
-  /// markDone の取り消し。直前の値に戻す
+  /// markDone の取り消し。直前の値に戻す。`done_logs` の直近 1 行の削除と
+  /// 同一トランザクションで書く(#20)
   Future<void> restoreLastDoneAt(
     ItemId id,
     DateTime? previous, {

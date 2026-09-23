@@ -188,7 +188,7 @@ double? relativeElapsed({required int? elapsedDays, required double? baselineInt
 | メソッド | 変更 |
 | --- | --- |
 | `watchAll()` | 各 `Item` の `recentDoneAts` を埋めて流す |
-| `markDone(id, doneAt)` | `_db.transaction` の中で `items` を更新し、`done_logs` に 1 行 INSERT(id = UUID v4、done_at = doneAt と同じミリ秒) |
+| `markDone(id, doneAt)` | `_db.transaction` の中で `items` を更新し、`done_logs` に 1 行 INSERT(id = UUID v4、done_at = doneAt と同じミリ秒)。**`items` の UPDATE が 0 行(削除と同時操作)なら INSERT しない**(既存の「対象なしは例外にしない」契約を守る。存在しない `item_id` への INSERT は外部キー違反になる。実装中に追記・Fake も同じ) |
 | `restoreLastDoneAt(id, previous, now)` | `_db.transaction` の中で、その項目の `done_logs` の直近 1 行(`ORDER BY done_at DESC, rowid DESC LIMIT 1` で id を取り、その id で DELETE)を消し、`items` を従来どおり更新。**履歴が 0 件なら DELETE は何もしない**(例外にしない) |
 | `delete(id)` | 変更なし(外部キーの CASCADE で `done_logs` も消える) |
 | `add` / `rename` | 変更なし |
