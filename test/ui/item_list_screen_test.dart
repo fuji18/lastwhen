@@ -10,6 +10,7 @@ import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -254,14 +255,37 @@ void main() {
     expect(rowText('歯ブラシ交換', '今日'), findsOneWidget);
   });
 
-  testWidgets('カードタップで編集画面へ遷移すると取り消し導線が閉じる', (tester) async {
+  testWidgets('カードタップで詳細シートが開き、取り消し導線が閉じる', (tester) async {
     await pumpItems(tester);
     await record(tester, '歯ブラシ交換');
     expect(find.byType(SnackBar), findsOneWidget);
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
-    expect(find.byType(ItemEditScreen), findsOneWidget);
+    expect(find.byType(ItemDetailSheet), findsOneWidget);
+    expect(find.byType(ItemEditScreen), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
     expect(find.text('取り消す'), findsNothing);
+  });
+
+  testWidgets('詳細シートの編集から編集画面へ遷移する', (tester) async {
+    await pumpItems(tester);
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemEditScreen), findsOneWidget);
+    expect(find.byType(ItemDetailSheet), findsNothing);
+  });
+
+  testWidgets('詳細シートを閉じると一覧に戻る', (tester) async {
+    await pumpItems(tester);
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemDetailSheet), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemDetailSheet), findsNothing);
+    expect(find.byType(ItemEditScreen), findsNothing);
+    expect(find.byType(ItemListScreen), findsOneWidget);
   });
 }

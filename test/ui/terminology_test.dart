@@ -12,6 +12,7 @@ import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -81,7 +82,7 @@ void main() {
   );
 
   group('用語', () {
-    for (final screen in ['一覧(項目あり)', '一覧(空)', '登録', '編集', '削除確認']) {
+    for (final screen in ['一覧(項目あり)', '一覧(空)', '登録', '詳細', '編集', '削除確認']) {
       testWidgets('$screen の描画文字列が表記ゆれの禁止一覧に違反しない', (tester) async {
         tester.view.physicalSize = const Size(360 * 3, 640 * 3);
         tester.view.devicePixelRatio = 3;
@@ -102,9 +103,15 @@ void main() {
             await tester.tap(find.byType(FloatingActionButton));
             await tester.pumpAndSettle();
             expect(find.byType(ItemAddScreen), findsOneWidget);
+          case '詳細':
+            await tester.tap(find.text('美容院'));
+            await tester.pumpAndSettle();
+            expect(find.byType(ItemDetailSheet), findsOneWidget);
           case '編集':
           case '削除確認':
             await tester.tap(find.text('美容院'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('編集'));
             await tester.pumpAndSettle();
             expect(find.byType(ItemEditScreen), findsOneWidget);
             if (screen == '削除確認') {

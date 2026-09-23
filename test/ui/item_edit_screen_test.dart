@@ -38,6 +38,8 @@ void main() {
     await pumpItems(tester);
     await tester.tap(find.text(name));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> saveName(WidgetTester tester, String name) async {
@@ -61,7 +63,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('カードタップで現在の項目名が入った編集画面が開く', (tester) async {
+  testWidgets('詳細シートの編集から現在の項目名が入った編集画面が開く', (tester) async {
     await openEditScreen(tester, '美容院');
     expect(find.byType(ItemEditScreen), findsOneWidget);
     expect(

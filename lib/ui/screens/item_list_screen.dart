@@ -10,6 +10,7 @@ import '../../state/item_view.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_card.dart';
+import '../widgets/item_detail_sheet.dart';
 import 'item_add_screen.dart';
 import 'item_edit_screen.dart';
 
@@ -65,6 +66,25 @@ void _openAddScreen(BuildContext context) {
   );
 }
 
+/// 詳細シートを開く。編集画面への入口はシートの中にある。
+Future<void> _openDetailSheet(BuildContext context, ItemView item) async {
+  // 画面遷移と同じく、取り消し導線を閉じる。
+  ScaffoldMessenger.of(context).clearSnackBars();
+  final openEdit = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => ItemDetailSheet(
+      item: item,
+      onEditPressed: () => Navigator.of(sheetContext).pop(true),
+    ),
+  );
+  if (openEdit == true && context.mounted) {
+    _openEditScreen(context, item);
+  }
+}
+
 /// 編集画面へ遷移する。**削除の入口でもある**(`docs/product-requirements.md` F7)。
 void _openEditScreen(BuildContext context, ItemView item) {
   // ScaffoldMessenger は Navigator の上にあり、閉じないと遷移後も導線が残る(判断13)。
@@ -95,7 +115,7 @@ class _ItemList extends ConsumerWidget {
         return ItemCard(
           item: item,
           onDonePressed: () => _handleDone(context, ref, item.id),
-          onTap: () => _openEditScreen(context, item),
+          onTap: () => unawaited(_openDetailSheet(context, item)),
         );
       },
     );
