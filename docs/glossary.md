@@ -67,9 +67,31 @@
 
 ### 履歴(Done Log)【P1】
 
-過去に記録したすべての日時。MVP は最終実施日のみを持ち、履歴は保持しない。
+過去に記録したすべての日時。`done_logs` テーブルに 1 回の記録につき 1 行で保存する(#20)。
+`items.last_done_at` は最新ログのキャッシュとして残る。
 
-- **コード上の表記**: `DoneLog` / `done_logs` テーブル
+- **コード上の表記**: `DoneLogRow` / `done_logs` テーブル / `Item.recentDoneAts`(直近最大 10 件)
+
+### 前回間隔(Previous Interval)【P1】
+
+直近 2 回の記録の暦日の差。記録が 1 件以下なら無い(`null`)。
+
+- **コード上の表記**: `previousIntervalDays`
+
+### 基準間隔(Baseline Interval)【P1】
+
+実施履歴から学習する、その項目の目安間隔。直近最大 5 間隔の**中央値**(丸めない)。
+ユーザーに設定を求めない(F27)。
+
+- **コード上の表記**: `baselineIntervalDays`
+- **UI 文言**: 「平均」
+- **null のとき画面上は「学習中」**
+
+### 相対経過度(Relative Elapsed)【P1】
+
+経過日数を基準間隔で割った値。基準間隔・経過日数のどちらかが無ければ無い(`null`)。
+
+- **コード上の表記**: `relativeElapsed`
 
 ## アプリの技術用語
 
@@ -223,6 +245,18 @@ MVP で唯一のテーブル。
 | `created_at` | INTEGER NOT NULL | 登録日時 |
 | `updated_at` | INTEGER NOT NULL | 最終更新日時 |
 | `sort_order` | INTEGER NOT NULL | 表示順 |
+
+### done_logs テーブル
+
+`items` に対する「やった」1 回につき 1 行の履歴。v2 のマイグレーションで追加した(#20)。
+
+| 列 | 型 | 意味 |
+| --- | --- | --- |
+| `id` | TEXT (PK) | UUID v4 |
+| `item_id` | TEXT NOT NULL (FK → items.id) | 対象の項目。項目の削除で行ごと消える(ON DELETE CASCADE) |
+| `done_at` | INTEGER NOT NULL | 実施日時。UTC エポックミリ秒(`items.last_done_at` と同じ形式) |
+
+インデックス: `(item_id, done_at)`。
 
 ### ItemId
 

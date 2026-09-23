@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_repository.dart';
 
@@ -12,6 +13,9 @@ final class FakeItemRepository implements ItemRepository {
   final List<Item> _items = <Item>[];
   final StreamController<List<Item>> _controller =
       StreamController<List<Item>>.broadcast();
+
+  /// 項目ごとの履歴(新しい順)。`ItemRepositoryImpl` の `done_logs` に相当する。
+  final Map<ItemId, List<DateTime>> _doneLogs = <ItemId, List<DateTime>>{};
 
   int _idSequence = 0;
 
@@ -61,13 +65,20 @@ final class FakeItemRepository implements ItemRepository {
   Future<void> delete(ItemId id) async {
     _failIfConfigured();
     _items.removeWhere((item) => item.id == id);
+    // 履歴も一緒に消える(実装の外部キー CASCADE に相当)。
+    _doneLogs.remove(id);
     _emit();
   }
 
   @override
   Future<void> markDone(ItemId id, DateTime doneAt) async {
     _failIfConfigured();
+    // 対象が無ければ履歴も作らない(実装の「対象なし」と揃える)。
+    if (!_items.any((item) => item.id == id)) {
+      return;
+    }
     final timestamp = _normalize(doneAt);
+    (_doneLogs[id] ??= <DateTime>[]).insert(0, timestamp);
     _update(
       id,
       (item) => _copy(item, lastDoneAt: timestamp, updatedAt: timestamp),
@@ -81,6 +92,11 @@ final class FakeItemRepository implements ItemRepository {
     required DateTime now,
   }) async {
     _failIfConfigured();
+    // 履歴が 0 件なら何もしない(例外にしない。実装と同じ)。
+    final logs = _doneLogs[id];
+    if (logs != null && logs.isNotEmpty) {
+      logs.removeAt(0);
+    }
     _update(
       id,
       (item) => _copy(
@@ -124,7 +140,18 @@ final class FakeItemRepository implements ItemRepository {
         final byOrder = a.sortOrder.compareTo(b.sortOrder);
         return byOrder != 0 ? byOrder : a.id.value.compareTo(b.id.value);
       });
-    return List<Item>.unmodifiable(sorted);
+    return List<Item>.unmodifiable(
+      sorted.map((item) {
+        final logs = _doneLogs[item.id] ?? const <DateTime>[];
+        final recentDoneAts = logs.length <= recentDoneAtsLimit
+            ? logs
+            : logs.sublist(0, recentDoneAtsLimit);
+        return _copy(
+          item,
+          recentDoneAts: List<DateTime>.unmodifiable(recentDoneAts),
+        );
+      }),
+    );
   }
 
   /// 実装は epoch ミリ秒を往復するのでマイクロ秒が落ちる。同じ精度に丸める。
@@ -140,6 +167,7 @@ final class FakeItemRepository implements ItemRepository {
     String? name,
     Object? lastDoneAt = _unset,
     DateTime? updatedAt,
+    List<DateTime>? recentDoneAts,
   }) {
     return Item(
       id: source.id,
@@ -150,6 +178,7 @@ final class FakeItemRepository implements ItemRepository {
       createdAt: source.createdAt,
       updatedAt: updatedAt ?? source.updatedAt,
       sortOrder: source.sortOrder,
+      recentDoneAts: recentDoneAts ?? source.recentDoneAts,
     );
   }
 }

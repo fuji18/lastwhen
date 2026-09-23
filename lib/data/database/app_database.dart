@@ -43,8 +43,30 @@ class Items extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// アプリのローカル DB。MVP のテーブルは `items` 1 枚だけ。
-@DriftDatabase(tables: [Items])
+/// `done_logs` テーブル。「やった」1 回につき 1 行。定義は `docs/glossary.md`「done_logs テーブル」が正。
+@DataClassName('DoneLogRow')
+@TableIndex(name: 'done_logs_item_id_done_at', columns: {#itemId, #doneAt})
+class DoneLogs extends Table {
+  /// UUID v4。採番は `ItemRepositoryImpl`(移送分はマイグレーション)が行う。
+  TextColumn get id => text().named('id')();
+
+  /// 対象の項目。項目の削除で行ごと消える(ON DELETE CASCADE)。
+  TextColumn get itemId => text()
+      .named('item_id')
+      .references(Items, #id, onDelete: KeyAction.cascade)();
+
+  /// 実施日時。UTC のエポックミリ秒(items.last_done_at と同じ形式)。
+  IntColumn get doneAt => integer().named('done_at')();
+
+  @override
+  String get tableName => 'done_logs';
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// アプリのローカル DB。テーブルは `items` と `done_logs`(v2 で追加)。
+@DriftDatabase(tables: [Items, DoneLogs])
 class AppDatabase extends _$AppDatabase {
   /// 端末のドキュメント領域のファイルを開く。
   AppDatabase() : super(_openConnection());
@@ -53,10 +75,10 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
-  MigrationStrategy get migration => buildMigrationStrategy();
+  MigrationStrategy get migration => buildMigrationStrategy(this);
 }
 
 /// `<アプリのドキュメント領域>/lastwhen.sqlite` を開く。
