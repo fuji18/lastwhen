@@ -1,5 +1,9 @@
 import 'package:intl/intl.dart';
 
+// 別名を付ける: `baselineIntervalDays` / `previousIntervalDays` / `relativeElapsed`
+// はこのファイルのフィールド名(`ItemView` 判断7)と同じ名前(design.md の用語に揃えた結果)。
+// 衝突を避けるため常に `baseline.` を付けて呼ぶ。
+import '../domain/baseline_interval.dart' as baseline;
 import '../domain/elapsed_days.dart';
 import '../domain/item.dart';
 
@@ -21,11 +25,15 @@ final class ItemView {
     required this.name,
     required this.elapsed,
     required this.lastDoneText,
+    this.previousIntervalDays,
+    this.baselineIntervalDays,
+    this.relativeElapsed,
   });
 
   /// ドメインの [Item] を [now] 時点の表示モデルへ変換する。
   factory ItemView.from(Item item, {required DateTime now}) {
     final lastDoneAt = item.lastDoneAt;
+    final baselineDays = baseline.baselineIntervalDays(item.recentDoneAts);
     return ItemView(
       id: item.id,
       name: item.name,
@@ -34,6 +42,14 @@ final class ItemView {
       lastDoneText: lastDoneAt == null
           ? null
           : _lastDoneFormat.format(lastDoneAt.toLocal()),
+      previousIntervalDays: baseline.previousIntervalDays(item.recentDoneAts),
+      baselineIntervalDays: baselineDays,
+      relativeElapsed: baseline.relativeElapsed(
+        elapsedDays: lastDoneAt == null
+            ? null
+            : elapsedDays(lastDoneAt: lastDoneAt, now: now),
+        baselineIntervalDays: baselineDays,
+      ),
     );
   }
 
@@ -49,16 +65,36 @@ final class ItemView {
   /// 最後にやった日(`2026年9月12日`)。**未実施なら null**。
   final String? lastDoneText;
 
+  /// 前回間隔(日)。記録 1 件以下なら null。
+  final int? previousIntervalDays;
+
+  /// 基準間隔(日)。記録 1 件以下なら null。画面上の呼び名は「平均」。
+  final double? baselineIntervalDays;
+
+  /// 相対経過度(経過日数 ÷ 基準間隔)。基準間隔が null・未実施なら null。
+  final double? relativeElapsed;
+
   @override
   bool operator ==(Object other) =>
       other is ItemView &&
       other.id == id &&
       other.name == name &&
       other.elapsed == elapsed &&
-      other.lastDoneText == lastDoneText;
+      other.lastDoneText == lastDoneText &&
+      other.previousIntervalDays == previousIntervalDays &&
+      other.baselineIntervalDays == baselineIntervalDays &&
+      other.relativeElapsed == relativeElapsed;
 
   @override
-  int get hashCode => Object.hash(id, name, elapsed, lastDoneText);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    elapsed,
+    lastDoneText,
+    previousIntervalDays,
+    baselineIntervalDays,
+    relativeElapsed,
+  );
 }
 
 /// 一覧をまとめて表示モデルへ変換する。
