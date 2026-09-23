@@ -12,6 +12,7 @@ final class Item {
     required this.createdAt,
     required this.updatedAt,
     required this.sortOrder,
+    this.recentDoneAts = const <DateTime>[],
   });
 
   final ItemId id;
@@ -31,6 +32,10 @@ final class Item {
   /// 表示順。MVP では常に登録順と一致する。
   final int sortOrder;
 
+  /// 直近の実施日時(UTC)。**新しい順**、最大 [recentDoneAtsLimit] 件。
+  /// 未実施なら空。先頭は [lastDoneAt] と一致する。
+  final List<DateTime> recentDoneAts;
+
   @override
   bool operator ==(Object other) =>
       other is Item &&
@@ -39,9 +44,33 @@ final class Item {
       other.lastDoneAt == lastDoneAt &&
       other.createdAt == createdAt &&
       other.updatedAt == updatedAt &&
-      other.sortOrder == sortOrder;
+      other.sortOrder == sortOrder &&
+      _listEquals(other.recentDoneAts, recentDoneAts);
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, lastDoneAt, createdAt, updatedAt, sortOrder);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    lastDoneAt,
+    createdAt,
+    updatedAt,
+    sortOrder,
+    Object.hashAll(recentDoneAts),
+  );
+}
+
+/// `package:collection` を使わない要素比較(`lib/domain/` はレイヤー依存テストの対象)。
+bool _listEquals(List<DateTime> a, List<DateTime> b) {
+  if (identical(a, b)) {
+    return true;
+  }
+  if (a.length != b.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
 }
