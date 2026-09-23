@@ -429,15 +429,298 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
   }
 }
 
+class $DoneLogsTable extends DoneLogs
+    with TableInfo<$DoneLogsTable, DoneLogRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DoneLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
+  @override
+  late final GeneratedColumn<int> doneAt = GeneratedColumn<int>(
+    'done_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, itemId, doneAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'done_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DoneLogRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('done_at')) {
+      context.handle(
+        _doneAtMeta,
+        doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_doneAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DoneLogRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DoneLogRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      doneAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}done_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DoneLogsTable createAlias(String alias) {
+    return $DoneLogsTable(attachedDatabase, alias);
+  }
+}
+
+class DoneLogRow extends DataClass implements Insertable<DoneLogRow> {
+  /// UUID v4。採番は `ItemRepositoryImpl`(移送分はマイグレーション)が行う。
+  final String id;
+
+  /// 対象の項目。項目の削除で行ごと消える(ON DELETE CASCADE)。
+  final String itemId;
+
+  /// 実施日時。UTC のエポックミリ秒(items.last_done_at と同じ形式)。
+  final int doneAt;
+  const DoneLogRow({
+    required this.id,
+    required this.itemId,
+    required this.doneAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['item_id'] = Variable<String>(itemId);
+    map['done_at'] = Variable<int>(doneAt);
+    return map;
+  }
+
+  DoneLogsCompanion toCompanion(bool nullToAbsent) {
+    return DoneLogsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      doneAt: Value(doneAt),
+    );
+  }
+
+  factory DoneLogRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DoneLogRow(
+      id: serializer.fromJson<String>(json['id']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      doneAt: serializer.fromJson<int>(json['doneAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'itemId': serializer.toJson<String>(itemId),
+      'doneAt': serializer.toJson<int>(doneAt),
+    };
+  }
+
+  DoneLogRow copyWith({String? id, String? itemId, int? doneAt}) => DoneLogRow(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    doneAt: doneAt ?? this.doneAt,
+  );
+  DoneLogRow copyWithCompanion(DoneLogsCompanion data) {
+    return DoneLogRow(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DoneLogRow(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('doneAt: $doneAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, itemId, doneAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DoneLogRow &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.doneAt == this.doneAt);
+}
+
+class DoneLogsCompanion extends UpdateCompanion<DoneLogRow> {
+  final Value<String> id;
+  final Value<String> itemId;
+  final Value<int> doneAt;
+  final Value<int> rowid;
+  const DoneLogsCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.doneAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DoneLogsCompanion.insert({
+    required String id,
+    required String itemId,
+    required int doneAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       itemId = Value(itemId),
+       doneAt = Value(doneAt);
+  static Insertable<DoneLogRow> custom({
+    Expression<String>? id,
+    Expression<String>? itemId,
+    Expression<int>? doneAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (doneAt != null) 'done_at': doneAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DoneLogsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? itemId,
+    Value<int>? doneAt,
+    Value<int>? rowid,
+  }) {
+    return DoneLogsCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      doneAt: doneAt ?? this.doneAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (doneAt.present) {
+      map['done_at'] = Variable<int>(doneAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DoneLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('doneAt: $doneAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ItemsTable items = $ItemsTable(this);
+  late final $DoneLogsTable doneLogs = $DoneLogsTable(this);
+  late final Index doneLogsItemIdDoneAt = Index(
+    'done_logs_item_id_done_at',
+    'CREATE INDEX done_logs_item_id_done_at ON done_logs (item_id, done_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [items];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    items,
+    doneLogs,
+    doneLogsItemIdDoneAt,
+  ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('done_logs', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$ItemsTableCreateCompanionBuilder = ItemsCompanion Function({
@@ -458,6 +741,29 @@ typedef $$ItemsTableUpdateCompanionBuilder = ItemsCompanion Function({
   Value<int> sortOrder,
   Value<int> rowid,
 });
+
+final class $$ItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $ItemsTable, ItemRow> {
+  $$ItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$DoneLogsTable, List<DoneLogRow>>
+  _doneLogsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.doneLogs,
+    aliasName: 'items__id__done_logs__item_id',
+  );
+
+  $$DoneLogsTableProcessedTableManager get doneLogsRefs {
+    final manager = $$DoneLogsTableTableManager(
+      $_db,
+      $_db.doneLogs,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_doneLogsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
   $$ItemsTableFilterComposer({
@@ -496,6 +802,31 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
     column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> doneLogsRefs(
+    Expression<bool> Function($$DoneLogsTableFilterComposer f) f,
+  ) {
+    final $$DoneLogsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.doneLogs,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DoneLogsTableFilterComposer(
+            $db: $db,
+            $table: $db.doneLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableOrderingComposer
@@ -566,6 +897,31 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  Expression<T> doneLogsRefs<T extends Object>(
+    Expression<T> Function($$DoneLogsTableAnnotationComposer a) f,
+  ) {
+    final $$DoneLogsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.doneLogs,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DoneLogsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.doneLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ItemsTableTableManager
@@ -579,9 +935,9 @@ class $$ItemsTableTableManager
           $$ItemsTableAnnotationComposer,
           $$ItemsTableCreateCompanionBuilder,
           $$ItemsTableUpdateCompanionBuilder,
-          (ItemRow, BaseReferences<_$AppDatabase, $ItemsTable, ItemRow>),
+          (ItemRow, $$ItemsTableReferences),
           ItemRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool doneLogsRefs})
         > {
   $$ItemsTableTableManager(_$AppDatabase db, $ItemsTable table)
     : super(
@@ -634,15 +990,32 @@ class $$ItemsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ItemsTable, ItemRow>(table),
-                  BaseReferences<_$AppDatabase, $ItemsTable, ItemRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$ItemsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({doneLogsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (doneLogsRefs) db.doneLogs],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (doneLogsRefs)
+                    await $_getPrefetchedData<ItemRow, $ItemsTable, DoneLogRow>(
+                      currentTable: table,
+                      referencedTable: $$ItemsTableReferences
+                          ._doneLogsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ItemsTableReferences(db, table, p0).doneLogsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.itemId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -657,9 +1030,285 @@ typedef $$ItemsTableProcessedTableManager =
       $$ItemsTableAnnotationComposer,
       $$ItemsTableCreateCompanionBuilder,
       $$ItemsTableUpdateCompanionBuilder,
-      (ItemRow, BaseReferences<_$AppDatabase, $ItemsTable, ItemRow>),
+      (ItemRow, $$ItemsTableReferences),
       ItemRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool doneLogsRefs})
+    >;
+typedef $$DoneLogsTableCreateCompanionBuilder = DoneLogsCompanion Function({
+  required String id,
+  required String itemId,
+  required int doneAt,
+  Value<int> rowid,
+});
+typedef $$DoneLogsTableUpdateCompanionBuilder = DoneLogsCompanion Function({
+  Value<String> id,
+  Value<String> itemId,
+  Value<int> doneAt,
+  Value<int> rowid,
+});
+
+final class $$DoneLogsTableReferences
+    extends BaseReferences<_$AppDatabase, $DoneLogsTable, DoneLogRow> {
+  $$DoneLogsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ItemsTable _itemIdTable(_$AppDatabase db) =>
+      db.items.createAlias('done_logs__item_id__items__id');
+
+  $$ItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<String>('item_id')!;
+
+    final manager = $$ItemsTableTableManager(
+      $_db,
+      $_db.items,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$DoneLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $DoneLogsTable> {
+  $$DoneLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ItemsTableFilterComposer get itemId {
+    final $$ItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DoneLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DoneLogsTable> {
+  $$DoneLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get doneAt => $composableBuilder(
+    column: $table.doneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ItemsTableOrderingComposer get itemId {
+    final $$ItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DoneLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DoneLogsTable> {
+  $$DoneLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get doneAt =>
+      $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  $$ItemsTableAnnotationComposer get itemId {
+    final $$ItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.items,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.items,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$DoneLogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DoneLogsTable,
+          DoneLogRow,
+          $$DoneLogsTableFilterComposer,
+          $$DoneLogsTableOrderingComposer,
+          $$DoneLogsTableAnnotationComposer,
+          $$DoneLogsTableCreateCompanionBuilder,
+          $$DoneLogsTableUpdateCompanionBuilder,
+          (DoneLogRow, $$DoneLogsTableReferences),
+          DoneLogRow,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$DoneLogsTableTableManager(_$AppDatabase db, $DoneLogsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DoneLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DoneLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DoneLogsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<int> doneAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DoneLogsCompanion(
+                id: id,
+                itemId: itemId,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String itemId,
+                required int doneAt,
+                Value<int> rowid = const Value.absent(),
+              }) => DoneLogsCompanion.insert(
+                id: id,
+                itemId: itemId,
+                doneAt: doneAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DoneLogsTable, DoneLogRow>(table),
+                  $$DoneLogsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.itemId,
+                        referencedTable: $$DoneLogsTableReferences._itemIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$DoneLogsTableReferences
+                            ._itemIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$DoneLogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DoneLogsTable,
+      DoneLogRow,
+      $$DoneLogsTableFilterComposer,
+      $$DoneLogsTableOrderingComposer,
+      $$DoneLogsTableAnnotationComposer,
+      $$DoneLogsTableCreateCompanionBuilder,
+      $$DoneLogsTableUpdateCompanionBuilder,
+      (DoneLogRow, $$DoneLogsTableReferences),
+      DoneLogRow,
+      PrefetchHooks Function({bool itemId})
     >;
 
 class $AppDatabaseManager {
@@ -667,4 +1316,6 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$ItemsTableTableManager get items =>
       $$ItemsTableTableManager(_db, _db.items);
+  $$DoneLogsTableTableManager get doneLogs =>
+      $$DoneLogsTableTableManager(_db, _db.doneLogs);
 }
