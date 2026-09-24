@@ -15,12 +15,34 @@ import 'item_add_screen.dart';
 import 'item_edit_screen.dart';
 
 /// 一覧画面。**起動直後に出る唯一の画面**(`docs/functional-design.md`「画面遷移図」)。
-class ItemListScreen extends ConsumerWidget {
+class ItemListScreen extends ConsumerStatefulWidget {
   /// 一覧画面を作る。
   const ItemListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ItemListScreen> createState() => _ItemListScreenState();
+}
+
+class _ItemListScreenState extends ConsumerState<ItemListScreen> {
+  /// 復帰で並びを確定し直す(F30)。記録では組み替えない。
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () => ref.read(itemListProvider.notifier).refreshOrder(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final items = ref.watch(itemListProvider);
     // 追加導線は空状態(EmptyState 側にボタンがある)と読み込み中・失敗では出さない(判断5)。
     final hasItems = switch (items) {

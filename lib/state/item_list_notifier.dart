@@ -6,6 +6,7 @@ import '../domain/item.dart';
 import '../domain/item_name.dart';
 import 'add_item_result.dart';
 import 'edit_item_result.dart';
+import 'item_order.dart';
 import 'item_view.dart';
 import 'mark_done_result.dart';
 import 'providers.dart';
@@ -21,19 +22,35 @@ final itemListProvider =
 /// **`StreamNotifier` を継承する**(design.md 判断1)。供給源の `watchAll()` が Stream なので、
 /// 購読・初回値・破棄を Riverpod 側に持たせる。
 /// 登録・記録・取り消しは結果型を返し、一覧の更新は購読に任せる。
+/// 並び順は相対経過度の降順(F30)。記録では組み替えず、開き直し・復帰で確定し直す。
 class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   /// 最後に流れてきたドメインの一覧。取り消し用の直前値を引くために控える(判断4)。
   List<Item> _latestItems = const <Item>[];
+
+  /// 確定済みの並び順。null のときは次の emit で確定する。
+  List<ItemId>? _fixedOrder;
 
   @override
   Stream<List<ItemView>> build() {
     final repository = ref.watch(itemRepositoryProvider);
     final clock = ref.watch(clockProvider);
+    // build し直し = 一覧を開き直した扱い。次の emit で並びを確定させる。
+    _fixedOrder = null;
     // now は 1 回の emit につき 1 つ。行ごとに Clock を呼ばない(判断2)。
     return repository.watchAll().map((items) {
       _latestItems = items;
-      return toItemViews(items, now: clock.now());
+      return _ordered(toItemViews(items, now: clock.now()));
     });
+  }
+
+  /// 未確定なら相対経過度で確定させ、確定済みならその並びを保つ。
+  List<ItemView> _ordered(List<ItemView> views) {
+    final fixed = _fixedOrder;
+    final ordered = fixed == null
+        ? sortByRelativeElapsed(views)
+        : applyFixedOrder(views, fixed);
+    _fixedOrder = [for (final view in ordered) view.id];
+    return ordered;
   }
 
   /// 項目を登録する。検証を通ったときだけ保存し、結果を返す。
@@ -64,6 +81,19 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
           return const AddItemFailed();
         }
     }
+  }
+
+  /// アプリ復帰時に、現在時刻で経過日数と並び順を確定し直す。
+  ///
+  /// 一覧が未取得・読み込み失敗なら何もしない。初回 emit で確定する。
+  void refreshOrder() {
+    if (state is! AsyncData<List<ItemView>>) {
+      return;
+    }
+    _fixedOrder = null;
+    state = AsyncData(
+      _ordered(toItemViews(_latestItems, now: ref.read(clockProvider).now())),
+    );
   }
 
   /// 「やった」を記録する。現在時刻を最終実施日として保存する。

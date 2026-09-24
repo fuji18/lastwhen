@@ -533,4 +533,96 @@ void main() {
       expect(clock.calls, before);
     });
   });
+  group('並び順(F30)', () {
+    Future<ProviderContainer> ready() async {
+      final car = await repository.add('車の点検', now: now);
+      await repository.add('美容院', now: now);
+      final bath = await repository.add('風呂掃除', now: now);
+      for (final days in [540, 360, 180]) {
+        await repository.markDone(car.id, now.subtract(Duration(days: days)));
+      }
+      for (final days in [28, 21, 14]) {
+        await repository.markDone(bath.id, now.subtract(Duration(days: days)));
+      }
+      final container = _container(repository, FakeClock(now));
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      return container;
+    }
+
+    Future<List<ItemView>> current(ProviderContainer container) async {
+      await Future<void>.delayed(Duration.zero);
+      return container.read(itemListProvider).requireValue;
+    }
+
+    test('登録順ではなく相対経過度の降順で null は末尾になる', () async {
+      final container = await ready();
+      expect(container.read(itemListProvider).requireValue.map((v) => v.name), [
+        '風呂掃除',
+        '車の点検',
+        '美容院',
+      ]);
+    });
+
+    test('記録後も順序を保ち記録した項目は今日になる', () async {
+      final container = await ready();
+      final id = container.read(itemListProvider).requireValue.first.id;
+      expect(
+        await container.read(itemListProvider.notifier).markDone(id),
+        isA<MarkDoneSucceeded>(),
+      );
+      final views = await current(container);
+      expect(views.map((v) => v.name), ['風呂掃除', '車の点検', '美容院']);
+      expect(views.first.elapsed, isA<Today>());
+    });
+
+    test('記録後に refreshOrder を呼ぶと相対経過度順に確定し直す', () async {
+      final container = await ready();
+      final notifier = container.read(itemListProvider.notifier);
+      await notifier.markDone(
+        container.read(itemListProvider).requireValue.first.id,
+      );
+      await current(container);
+      notifier.refreshOrder();
+      final views = container.read(itemListProvider).requireValue;
+      expect(views.map((v) => v.name), ['車の点検', '風呂掃除', '美容院']);
+      expect(views[1].relativeElapsed, 0);
+    });
+
+    test('確定後に登録した項目は末尾に付く', () async {
+      final container = await ready();
+      expect(
+        await container.read(itemListProvider.notifier).addItem('新しい項目'),
+        isA<AddItemSucceeded>(),
+      );
+      expect((await current(container)).map((v) => v.name), [
+        '風呂掃除',
+        '車の点検',
+        '美容院',
+        '新しい項目',
+      ]);
+    });
+
+    test('確定後に削除すると他の項目の順序を保つ', () async {
+      final container = await ready();
+      final id = container.read(itemListProvider).requireValue[1].id;
+      expect(
+        await container.read(itemListProvider.notifier).deleteItem(id),
+        isA<DeleteItemSucceeded>(),
+      );
+      expect((await current(container)).map((v) => v.name), ['風呂掃除', '美容院']);
+    });
+
+    test('読み込み中の refreshOrder は例外を投げず何もしない', () async {
+      final container = _container(repository, FakeClock(now));
+      final before = container.read(itemListProvider);
+      expect(before, isA<AsyncLoading<List<ItemView>>>());
+      expect(
+        container.read(itemListProvider.notifier).refreshOrder,
+        returnsNormally,
+      );
+      expect(container.read(itemListProvider), same(before));
+      await container.read(itemListProvider.future);
+    });
+  });
 }

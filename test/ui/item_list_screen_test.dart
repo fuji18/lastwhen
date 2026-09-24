@@ -288,4 +288,68 @@ void main() {
     expect(find.byType(ItemEditScreen), findsNothing);
     expect(find.byType(ItemListScreen), findsOneWidget);
   });
+  group('並び順(F30)', () {
+    Future<void> pumpOrderedItems(WidgetTester tester) async {
+      final car = await repository.add('車の点検', now: now);
+      await repository.add('美容院', now: now);
+      final bath = await repository.add('風呂掃除', now: now);
+      for (final days in [540, 360, 180]) {
+        await repository.markDone(car.id, now.subtract(Duration(days: days)));
+      }
+      for (final days in [28, 21, 14]) {
+        await repository.markDone(bath.id, now.subtract(Duration(days: days)));
+      }
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> recordBath(WidgetTester tester) async {
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ItemCard, '風呂掃除'),
+          matching: find.byType(DoneButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    double top(WidgetTester tester, String name) =>
+        tester.getTopLeft(find.text(name)).dy;
+
+    testWidgets('14日前の風呂掃除が180日前の車の点検より上で未実施は末尾', (tester) async {
+      await pumpOrderedItems(tester);
+      expect(find.text('14日前'), findsOneWidget);
+      expect(find.text('180日前'), findsOneWidget);
+      expect(top(tester, '風呂掃除'), lessThan(top(tester, '車の点検')));
+      expect(top(tester, '車の点検'), lessThan(top(tester, '美容院')));
+    });
+
+    testWidgets('記録してもカードの位置が変わらず今日と取り消しが表示される', (tester) async {
+      await pumpOrderedItems(tester);
+      final before = top(tester, '風呂掃除');
+      await recordBath(tester);
+      expect(top(tester, '風呂掃除'), before);
+      expect(find.text('今日'), findsOneWidget);
+      expect(find.text('取り消す'), findsOneWidget);
+    });
+
+    testWidgets('記録後にアプリが復帰すると風呂掃除が車の点検より下になる', (tester) async {
+      await pumpOrderedItems(tester);
+      await recordBath(tester);
+      expect(top(tester, '風呂掃除'), lessThan(top(tester, '車の点検')));
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+      expect(top(tester, '車の点検'), lessThan(top(tester, '風呂掃除')));
+      expect(top(tester, '風呂掃除'), lessThan(top(tester, '美容院')));
+    });
+  });
 }
