@@ -163,6 +163,21 @@ void main() {
       });
     }
 
+    testWidgets('文字サイズ 200% で詳細シートが破綻しない', (tester) async {
+      _setScreenSize(tester, height: 320);
+      await seedItems();
+      await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('美容院'));
+      await tester.pumpAndSettle();
+      expect(_ellipsizedTexts(tester), isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('編集'));
+      await tester.pumpAndSettle();
+      expect(find.text('編集').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('項目名が長い場合だけ 2 行まで表示して省略する', (tester) async {
       _setScreenSize(tester);
       final name = List.filled(40, 'あ').join();
