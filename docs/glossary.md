@@ -58,6 +58,16 @@
 
 > **「0日前」と表示しない。** 「今日やった」と区別がつかなくなる。
 
+### カテゴリ(Category)【P1】
+
+項目を分けるための区分。項目あたり 0 か 1 つ(多対多にしない)。初期値は 4 つ
+(生活 / 健康 / 趣味 / その他)。ユーザーが追加・名前変更・削除できる(F13)。
+**カテゴリの無い状態を「未分類」と呼ぶ。**
+
+- **コード上の表記**: `Category` / `CategoryId` / `categoryId`
+- **UI 文言**: 「カテゴリ」/ カテゴリの無い状態は「未分類」
+- **使わない言い換え**: カテゴリー、タグ、ジャンル
+
 ### 目安期間(Interval)【P1】
 
 項目ごとに設定する推奨間隔(日数)。歯ブラシ交換なら 30 日など。MVP には無い。
@@ -275,6 +285,7 @@ MVP から存在するテーブル。
 | `updated_at` | INTEGER NOT NULL | 最終更新日時 |
 | `sort_order` | INTEGER NOT NULL | 表示順 |
 | `icon` | TEXT NULL | アイコンの保存キー(`ItemIcon.key`)。**NULL = 未選択**(既定アイコンで表示)。v3 で追加(#32) |
+| `category_id` | TEXT NULL (FK → categories.id) | カテゴリ。**NULL = 未分類**。カテゴリの削除で NULL に戻る(ON DELETE SET NULL)。v4 で追加(#33) |
 
 ### done_logs テーブル
 
@@ -288,9 +299,24 @@ MVP から存在するテーブル。
 
 インデックス: `(item_id, done_at)`。
 
+### categories テーブル
+
+項目を分けるカテゴリ。v4 のマイグレーションで追加した(#33)。初期行として 4 件
+(生活 / 健康 / 趣味 / その他)を入れる。
+
+| 列 | 型 | 意味 |
+| --- | --- | --- |
+| `id` | TEXT (PK) | UUID v4 |
+| `name` | TEXT NOT NULL | カテゴリ名。トリム後 1〜10 文字・重複不可(検証はドメイン層) |
+| `sort_order` | INTEGER NOT NULL | 表示順。`MAX(sort_order) + 1` で採番する |
+
 ### ItemId
 
 項目 ID を表す extension type。素の `String` と取り違えないためにある。
+
+### CategoryId
+
+カテゴリ ID を表す extension type。素の `String` と取り違えないためにある。
 
 ## エラー・例外
 
@@ -342,3 +368,4 @@ elapsed   = max(0, todayDate.difference(lastDate).inDays)
 | 経過日数 | 経過時間、日数差、インターバル |
 | 未実施 | 未完了、未着手、0日前 |
 | 目安期間 | 推奨間隔、サイクル、周期 |
+| カテゴリ / 未分類 | カテゴリー、タグ、ジャンル |
