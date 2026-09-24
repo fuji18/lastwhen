@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import '../../domain/aging_stage.dart';
 import '../../domain/elapsed_days.dart';
 import '../../state/item_view.dart';
+import '../item_icon_glyph.dart';
 import '../theme/app_theme.dart';
 import 'aged_paper.dart';
 import 'done_button.dart';
 
+/// 一覧カードで描くアイコンの一辺(dp)。
+const double itemCardIconSize = 24;
+
 /// 横並びから縦積みへ切り替える文字倍率のしきい値。
 ///
-/// 1.3 未満なら「経過日数の実寸 + ボタン 56dp」を 360dp 幅に置いても項目名の取り分が
-/// 残る(1.29 倍で約 81dp)。1.3 以上では取り分が消えるので縦に積む(design.md 判断1)。
-const double itemCardStackThreshold = 1.3;
+/// 1.2 未満なら「アイコン 24dp + 経過日数の実寸 + ボタン 56dp」を 360dp 幅に置いても項目名の取り分が
+/// 残る(1.19 倍で約 61dp)。1.2 以上では取り分が細るので縦に積む(#9 判断1 / #32 判断8)。
+const double itemCardStackThreshold = 1.2;
 
 /// しきい値を判定するときの基準フォントサイズ(dp)。
 ///
@@ -20,11 +24,12 @@ const double _referenceFontSize = 16;
 
 /// 一覧のカード。**このアプリで最も重要なコンポーネント。**
 ///
-/// 通常の文字サイズでは「項目名 + 最終実施日」「経過日数」「やった」を横に並べ、
+/// 通常の文字サイズでは「アイコン + 項目名 + 最終実施日」「経過日数」「やった」を横に並べ、
 /// 文字が大きいときは縦に積む(design.md 判断1)。どちらの並びでも
 /// **経過日数が最大・最も太く、絶対に省略されない**(`docs/functional-design.md`「UI設計」)。
 /// 経年ステージに応じて紙が古びる(`AgedPaperPainter`)。
 /// 古びは紙の面と装飾だけに掛け、テキストの色と大きさは変えない。
+/// アイコンは経年ステージに応じて掠れる(`agingIconOpacity`)。
 /// ボタンを右端に置くのは片手操作で親指が届く範囲だから。
 class ItemCard extends StatelessWidget {
   /// カードを作る。
@@ -95,6 +100,8 @@ class _InlineLayout extends StatelessWidget {
             excludeSemantics: true,
             child: Row(
               children: [
+                _ItemGlyph(item: item),
+                const SizedBox(width: 8),
                 Expanded(child: _NameAndLastDone(item: item)),
                 const SizedBox(width: 12),
                 // **Flexible で包まない。** 幅が足りないときに削るのは項目名側で、
@@ -134,7 +141,13 @@ class _StackedLayout extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _NameAndLastDone(item: item),
+              Row(
+                children: [
+                  _ItemGlyph(item: item),
+                  const SizedBox(width: 8),
+                  Expanded(child: _NameAndLastDone(item: item)),
+                ],
+              ),
               const SizedBox(height: 8),
               _Elapsed(item: item, textAlign: TextAlign.start),
             ],
@@ -150,6 +163,25 @@ class _StackedLayout extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 項目のアイコン。経年ステージに応じて掠れる。読み上げは親の [Semantics] がまとめて行う。
+class _ItemGlyph extends StatelessWidget {
+  const _ItemGlyph({required this.item});
+
+  final ItemView item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Icon(
+      itemIconData(item.icon),
+      size: itemCardIconSize,
+      color: theme.colorScheme.onSurface.withValues(
+        alpha: agingIconOpacity(item.agingStage),
+      ),
     );
   }
 }

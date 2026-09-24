@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_repository.dart';
 
 /// メモリ上の [ItemRepository]。#5 以降の上位層テストで Drift を起動しないために置く。
@@ -32,7 +33,7 @@ final class FakeItemRepository implements ItemRepository {
   }
 
   @override
-  Future<Item> add(String name, {required DateTime now}) async {
+  Future<Item> add(String name, {ItemIcon? icon, required DateTime now}) async {
     _failIfConfigured();
     final timestamp = _normalize(now);
     // 実装と同じ MAX + 1 採番にする(空なら 0)。
@@ -49,6 +50,7 @@ final class FakeItemRepository implements ItemRepository {
       createdAt: timestamp,
       updatedAt: timestamp,
       sortOrder: sortOrder,
+      icon: icon,
     );
     _items.add(item);
     _emit();
@@ -56,9 +58,17 @@ final class FakeItemRepository implements ItemRepository {
   }
 
   @override
-  Future<void> rename(ItemId id, String name, {required DateTime now}) async {
+  Future<void> edit(
+    ItemId id, {
+    required String name,
+    required ItemIcon? icon,
+    required DateTime now,
+  }) async {
     _failIfConfigured();
-    _update(id, (item) => _copy(item, name: name, updatedAt: _normalize(now)));
+    _update(
+      id,
+      (item) => _copy(item, name: name, icon: icon, updatedAt: _normalize(now)),
+    );
   }
 
   @override
@@ -168,6 +178,7 @@ final class FakeItemRepository implements ItemRepository {
     Object? lastDoneAt = _unset,
     DateTime? updatedAt,
     List<DateTime>? recentDoneAts,
+    Object? icon = _unset,
   }) {
     return Item(
       id: source.id,
@@ -179,6 +190,7 @@ final class FakeItemRepository implements ItemRepository {
       updatedAt: updatedAt ?? source.updatedAt,
       sortOrder: source.sortOrder,
       recentDoneAts: recentDoneAts ?? source.recentDoneAts,
+      icon: identical(icon, _unset) ? source.icon : icon as ItemIcon?,
     );
   }
 }

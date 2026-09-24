@@ -2,18 +2,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/aging_stage.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/item_view.dart';
 
-Item _item(DateTime? lastDoneAt, {List<DateTime> recentDoneAts = const []}) =>
-    Item(
-      id: const ItemId('item-1'),
-      name: '美容院',
-      lastDoneAt: lastDoneAt,
-      createdAt: DateTime.utc(2026, 1, 1, 3),
-      updatedAt: DateTime.utc(2026, 9, 12, 3),
-      sortOrder: 0,
-      recentDoneAts: recentDoneAts,
-    );
+Item _item(
+  DateTime? lastDoneAt, {
+  List<DateTime> recentDoneAts = const [],
+  ItemIcon? icon,
+}) => Item(
+  id: const ItemId('item-1'),
+  name: '美容院',
+  lastDoneAt: lastDoneAt,
+  createdAt: DateTime.utc(2026, 1, 1, 3),
+  updatedAt: DateTime.utc(2026, 9, 12, 3),
+  sortOrder: 0,
+  recentDoneAts: recentDoneAts,
+  icon: icon,
+);
 
 void main() {
   final now = DateTime.utc(2026, 9, 16, 3);
@@ -30,6 +35,16 @@ void main() {
 
   test('未実施なら最終実施日の文字列は null', () {
     expect(ItemView.from(_item(null), now: now).lastDoneText, isNull);
+  });
+
+  test('ItemView.from はアイコンを引き継ぐ', () {
+    final view = ItemView.from(_item(null, icon: ItemIcon.bath), now: now);
+    expect(view.icon, ItemIcon.bath);
+  });
+
+  test('アイコンが無い項目は icon が null', () {
+    final view = ItemView.from(_item(null), now: now);
+    expect(view.icon, isNull);
   });
 
   test('DaysAgo を含めて同じ内容の表示モデルは等しい', () {

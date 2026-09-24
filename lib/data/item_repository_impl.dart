@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../domain/baseline_interval.dart' show recentDoneAtsLimit;
 import '../domain/item.dart';
+import '../domain/item_icon.dart';
 import '../domain/item_repository.dart';
 import 'database/app_database.dart';
 
@@ -70,7 +71,7 @@ ORDER BY item_id, done_at DESC, rn
   }
 
   @override
-  Future<Item> add(String name, {required DateTime now}) {
+  Future<Item> add(String name, {ItemIcon? icon, required DateTime now}) {
     final timestamp = _toEpochMillis(now);
     // 採番と INSERT を同じトランザクションに入れる。分けると同時追加で
     // sort_order が衝突する。
@@ -88,6 +89,7 @@ ORDER BY item_id, done_at DESC, rn
         createdAt: timestamp,
         updatedAt: timestamp,
         sortOrder: currentMax == null ? 0 : currentMax + 1,
+        icon: icon?.key,
       );
       await _db.into(_db.items).insert(row);
       return _toDomain(row, const <DateTime>[]);
@@ -95,10 +97,19 @@ ORDER BY item_id, done_at DESC, rn
   }
 
   @override
-  Future<void> rename(ItemId id, String name, {required DateTime now}) async {
+  Future<void> edit(
+    ItemId id, {
+    required String name,
+    required ItemIcon? icon,
+    required DateTime now,
+  }) async {
     // last_done_at を companion に載せない = 変更しない。
     await (_db.update(_db.items)..where((t) => t.id.equals(id.value))).write(
-      ItemsCompanion(name: Value(name), updatedAt: Value(_toEpochMillis(now))),
+      ItemsCompanion(
+        name: Value(name),
+        icon: Value(icon?.key),
+        updatedAt: Value(_toEpochMillis(now)),
+      ),
     );
   }
 
@@ -190,5 +201,6 @@ Item _toDomain(ItemRow row, List<DateTime> recentDoneAts) {
     updatedAt: _toUtc(row.updatedAt),
     sortOrder: row.sortOrder,
     recentDoneAts: recentDoneAts,
+    icon: ItemIcon.fromKey(row.icon),
   );
 }

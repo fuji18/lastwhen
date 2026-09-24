@@ -2,20 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/item.dart';
+import '../../domain/item_icon.dart';
 import '../../domain/item_name.dart';
 import '../../state/edit_item_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
+import '../widgets/item_icon_picker.dart';
 
-/// 項目の編集画面。**変更できるのは項目名だけ**(`docs/product-requirements.md` F6)。
+/// 項目の編集画面。**変更できるのは項目名とアイコン(F6 / F14)**。
 ///
 /// 最終実施日の手動修正は P1(F16)。ここに足さない。
 /// **削除の唯一の入口**でもある(F7。一覧にスワイプ削除を置かない)。
 class ItemEditScreen extends ConsumerStatefulWidget {
   /// [itemId] の項目を編集する画面を作る。[initialName] は入力欄の初期値。
+  /// [initialIcon] は開いた時点のアイコン(保存済みの値)。
   const ItemEditScreen({
     required this.itemId,
     required this.initialName,
+    this.initialIcon,
     super.key,
   });
 
@@ -24,6 +28,9 @@ class ItemEditScreen extends ConsumerStatefulWidget {
 
   /// 開いた時点の項目名(保存済みの値)。
   final String initialName;
+
+  /// 開いた時点のアイコン(保存済みの値)。
+  final ItemIcon? initialIcon;
 
   @override
   ConsumerState<ItemEditScreen> createState() => _ItemEditScreenState();
@@ -39,6 +46,9 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
 
   /// 保存中・削除中は保存・削除・キャンセルをまとめて塞ぐ(判断9)。
   bool _isBusy = false;
+
+  /// 選択中のアイコン。null は未選択(既定アイコンになる)。
+  late ItemIcon? _icon = widget.initialIcon;
 
   @override
   void dispose() {
@@ -82,6 +92,12 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
                 onSubmitted: (_) => _save(),
               ),
               const SizedBox(height: 24),
+              ItemIconPicker(
+                selected: _icon,
+                onChanged: (value) => setState(() => _icon = value),
+                enabled: !_isBusy,
+              ),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isBusy ? null : _save,
                 child: const Text('保存'),
@@ -120,23 +136,23 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
     });
     final result = await ref
         .read(itemListProvider.notifier)
-        .renameItem(widget.itemId, _controller.text);
+        .editItem(widget.itemId, _controller.text, icon: _icon);
     if (!mounted) {
       return;
     }
     switch (result) {
       // 保存の完了を待ってから戻る(楽観的 UI 更新を採らない)。
-      case RenameItemSucceeded():
+      case EditItemSucceeded():
       // 対象が既に無い。エラーを出さずに戻る(判断7)。
-      case RenameItemIgnored():
+      case EditItemIgnored():
         Navigator.of(context).pop();
       // 画面を閉じない。入力もそのまま残す(受け入れ条件)。
-      case RenameItemRejected(:final reason):
+      case EditItemRejected(:final reason):
         setState(() {
           _isBusy = false;
           _errorText = itemNameErrorText(reason);
         });
-      case RenameItemFailed():
+      case EditItemFailed():
         setState(() => _isBusy = false);
         ScaffoldMessenger.of(
           context,

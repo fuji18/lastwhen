@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 
 void main() {
   group('Item の値比較', () {
@@ -107,6 +108,20 @@ void main() {
         sortOrder: 0,
       );
       expect(item.lastDoneAt, isNull);
+    });
+
+    test('アイコンが違えば等しくない', () {
+      final a = baseItem();
+      final b = Item(
+        id: a.id,
+        name: a.name,
+        lastDoneAt: a.lastDoneAt,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+        sortOrder: a.sortOrder,
+        icon: ItemIcon.bath,
+      );
+      expect(a == b, isFalse);
     });
 
     test('ItemId は同じ文字列なら等しい', () {

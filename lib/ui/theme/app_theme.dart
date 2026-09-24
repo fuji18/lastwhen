@@ -210,3 +210,15 @@ final class AgingPalette extends ThemeExtension<AgingPalette> {
     );
   }
 }
+
+/// 経年ステージごとの項目アイコンの不透明度(掠れ)。`colorScheme.onSurface` に掛ける。
+///
+/// **テキストには掛けない**(テキストの色は変えない方針)。アイコンは装飾なので薄くしてよいが、
+/// 形が読めるよう紙に対して 3:1 以上を保つ(`test/ui/theme/aging_palette_test.dart`)。
+double agingIconOpacity(AgingStage stage) => switch (stage) {
+  AgingStage.fresh => 1.0,
+  AgingStage.slightlyAged => 0.9,
+  AgingStage.dueSoon => 0.8,
+  AgingStage.aged => 0.7,
+  AgingStage.heavilyAged => 0.6,
+};

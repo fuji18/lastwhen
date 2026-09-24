@@ -5,6 +5,7 @@ import 'package:lastwhen/data/database/app_database.dart';
 import 'package:lastwhen/data/item_repository_impl.dart';
 import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_repository.dart';
 
 import '../support/fake_item_repository.dart';
@@ -89,8 +90,20 @@ void main() {
       await expectation;
     });
 
-    test('schemaVersion は 2', () {
-      expect(db.schemaVersion, 2);
+    test('schemaVersion は 3', () {
+      expect(db.schemaVersion, 3);
+    });
+
+    test('未知のアイコンキーを直接書き込むと未選択(null)で読める', () async {
+      final item = await repository.add('項目', now: t0);
+      await db.customStatement('UPDATE items SET icon = ? WHERE id = ?', [
+        'unknown',
+        item.id.value,
+      ]);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.icon, isNull);
     });
 
     test(
@@ -239,7 +252,7 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
     test('名称変更では名前だけが変わる', () async {
       final item = await repository.add('項目', now: t0);
       await repository.markDone(item.id, t1);
-      await repository.rename(item.id, '新しい名前', now: t2);
+      await repository.edit(item.id, name: '新しい名前', icon: null, now: t2);
 
       final items = await repository.watchAll().first;
       final updated = items.single;
@@ -249,6 +262,44 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
       expect(updated.createdAt, t0);
       expect(updated.sortOrder, item.sortOrder);
       expect(updated.updatedAt, t2);
+    });
+
+    test('アイコンつきで追加するとそのアイコンで登録される', () async {
+      await repository.add('項目', icon: ItemIcon.bath, now: t0);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.icon, ItemIcon.bath);
+    });
+
+    test('アイコンを省略して追加すると未選択(null)', () async {
+      await repository.add('項目', now: t0);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.icon, isNull);
+    });
+
+    test('編集でアイコンだけ変えても最終実施日と直近の履歴は変わらない', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.edit(item.id, name: '項目', icon: ItemIcon.bath, now: t2);
+
+      final items = await repository.watchAll().first;
+      final updated = items.single;
+
+      expect(updated.icon, ItemIcon.bath);
+      expect(updated.lastDoneAt, t1);
+      expect(updated.recentDoneAts, [t1]);
+    });
+
+    test('編集で icon: null にすると未選択に戻る', () async {
+      final item = await repository.add('項目', icon: ItemIcon.bath, now: t0);
+      await repository.edit(item.id, name: '項目', icon: null, now: t1);
+
+      final items = await repository.watchAll().first;
+
+      expect(items.single.icon, isNull);
     });
 
     test('削除しても他の項目に影響しない', () async {
@@ -281,7 +332,7 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
     test('存在しない項目への操作は例外にならない', () async {
       const missing = ItemId('missing');
 
-      await repository.rename(missing, '新しい名前', now: t0);
+      await repository.edit(missing, name: '新しい名前', icon: null, now: t0);
       await repository.markDone(missing, t0);
       await repository.restoreLastDoneAt(missing, null, now: t0);
       await repository.delete(missing);

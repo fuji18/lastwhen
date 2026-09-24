@@ -113,8 +113,11 @@ void _openEditScreen(BuildContext context, ItemView item) {
   ScaffoldMessenger.of(context).clearSnackBars();
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
-      builder: (context) =>
-          ItemEditScreen(itemId: item.id, initialName: item.name),
+      builder: (context) => ItemEditScreen(
+        itemId: item.id,
+        initialName: item.name,
+        initialIcon: item.icon,
+      ),
     ),
   );
 }

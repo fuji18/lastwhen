@@ -53,4 +53,33 @@ void main() {
       );
     }
   });
+
+  test('agingIconOpacity はステージ順に単調非増加', () {
+    final opacities = AgingStage.values.map(agingIconOpacity).toList();
+    for (var i = 1; i < opacities.length; i++) {
+      expect(opacities[i], lessThanOrEqualTo(opacities[i - 1]));
+    }
+  });
+
+  for (final (name, theme, palette) in [
+    ('light', AppTheme.light(), AgingPalette.light),
+    ('dark', AppTheme.dark(), AgingPalette.dark),
+  ]) {
+    for (final stage in AgingStage.values) {
+      test('$name ${stage.name} のアイコンの掠れは紙に対して3:1以上', () {
+        final colors = palette.colorsOf(stage);
+        final iconColor = Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(
+            alpha: agingIconOpacity(stage),
+          ),
+          colors.paper,
+        );
+        expect(_contrast(iconColor, colors.paper), greaterThanOrEqualTo(3.0));
+        expect(
+          _contrast(iconColor, Color.alphaBlend(colors.stain, colors.paper)),
+          greaterThanOrEqualTo(3.0),
+        );
+      });
+    }
+  }
 }

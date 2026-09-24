@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/aging_stage.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
@@ -15,6 +16,7 @@ ItemView _view({
   double? baselineIntervalDays = 7,
   double? relativeElapsed = 2,
   AgingStage stage = AgingStage.heavilyAged,
+  ItemIcon? icon,
 }) => ItemView(
   id: const ItemId('item-1'),
   name: '美容院',
@@ -24,6 +26,7 @@ ItemView _view({
   baselineIntervalDays: baselineIntervalDays,
   relativeElapsed: relativeElapsed,
   agingStage: stage,
+  icon: icon,
 );
 
 Widget _app(ItemView item, {VoidCallback? onEditPressed}) => MaterialApp(
@@ -174,6 +177,21 @@ void main() {
       isTrue,
     );
     // addTearDown では終了時検証より後に破棄され、未破棄として落ちる。
+    handle.dispose();
+  });
+
+  testWidgets('未選択は既定アイコン、指定があればそのアイコンを見出しに出す', (tester) async {
+    await tester.pumpWidget(_app(_view()));
+    expect(find.byIcon(Icons.event_repeat), findsOneWidget);
+
+    await tester.pumpWidget(_app(_view(icon: ItemIcon.bath)));
+    expect(find.byIcon(Icons.bathtub), findsOneWidget);
+  });
+
+  testWidgets('見出しのアイコンは読み上げに含まれない', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(_app(_view(icon: ItemIcon.bath)));
+    expect(tester.getSemantics(find.text('美容院')).label, '美容院');
     handle.dispose();
   });
 }

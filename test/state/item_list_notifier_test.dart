@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/add_item_result.dart';
 import 'package:lastwhen/state/edit_item_result.dart';
@@ -226,6 +227,15 @@ void main() {
         '歯ブラシ交換',
       ]);
     });
+
+    test('アイコンを指定して登録するとそのアイコンで保存される', () async {
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('風呂掃除', icon: ItemIcon.bath);
+      expect(result, isA<AddItemSucceeded>());
+      expect((await repository.watchAll().first).single.icon, ItemIcon.bath);
+    });
   });
   group('記録と取り消し', () {
     Future<ProviderContainer> ready({DateTime? previous, Clock? clock}) async {
@@ -354,7 +364,7 @@ void main() {
       expect(clock.calls, greaterThan(before));
     });
   });
-  group('renameItem', () {
+  group('editItem', () {
     late Item item;
     late ProviderContainer container;
 
@@ -366,11 +376,12 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     });
 
-    Future<RenameItemResult> rename(String name) =>
-        container.read(itemListProvider.notifier).renameItem(item.id, name);
+    Future<EditItemResult> rename(String name) => container
+        .read(itemListProvider.notifier)
+        .editItem(item.id, name, icon: null);
 
     test('名前を変えても最終実施日と経過日数は動かない', () async {
-      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      expect(await rename('シャンプー'), isA<EditItemSucceeded>());
       await Future<void>.delayed(Duration.zero);
       final view = container.read(itemListProvider).requireValue.single;
       expect(view.elapsed, const DaysAgo(4));
@@ -389,12 +400,12 @@ void main() {
           if (!updated.isCompleted) updated.complete(value);
         }
       });
-      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      expect(await rename('シャンプー'), isA<EditItemSucceeded>());
       expect((await updated.future).single.name, 'シャンプー');
     });
 
     test('前後の空白をトリムする', () async {
-      expect(await rename('  美容院  '), isA<RenameItemSucceeded>());
+      expect(await rename('  美容院  '), isA<EditItemSucceeded>());
       expect((await repository.watchAll().first).single.name, '美容院');
     });
 
@@ -402,7 +413,7 @@ void main() {
       test('空文字または空白のみ（長さ ${rawName.length}）は保存しない', () async {
         expect(
           await rename(rawName),
-          isA<RenameItemRejected>().having(
+          isA<EditItemRejected>().having(
             (result) => result.reason,
             'reason',
             ItemNameReason.empty,
@@ -415,7 +426,7 @@ void main() {
     test('51文字は保存しない', () async {
       expect(
         await rename('あ' * 51),
-        isA<RenameItemRejected>().having(
+        isA<EditItemRejected>().having(
           (result) => result.reason,
           'reason',
           ItemNameReason.tooLong,
@@ -425,7 +436,7 @@ void main() {
     });
 
     test('50文字は保存できる', () async {
-      expect(await rename('あ' * 50), isA<RenameItemSucceeded>());
+      expect(await rename('あ' * 50), isA<EditItemSucceeded>());
       expect((await repository.watchAll().first).single.name, 'あ' * 50);
     });
 
@@ -435,8 +446,8 @@ void main() {
       expect(
         await container
             .read(itemListProvider.notifier)
-            .renameItem(const ItemId('missing'), 'シャンプー'),
-        isA<RenameItemIgnored>(),
+            .editItem(const ItemId('missing'), 'シャンプー', icon: null),
+        isA<EditItemIgnored>(),
       );
       expect(await repository.watchAll().first, before);
     });
@@ -444,7 +455,7 @@ void main() {
     test('保存失敗でも一覧は AsyncData のまま元の名前を保持する', () async {
       final before = container.read(itemListProvider).requireValue;
       repository.writeError = StateError('write failed');
-      expect(await rename('シャンプー'), isA<RenameItemFailed>());
+      expect(await rename('シャンプー'), isA<EditItemFailed>());
       expect(
         container.read(itemListProvider),
         isA<AsyncData<List<ItemView>>>(),
@@ -454,8 +465,18 @@ void main() {
     });
 
     test('更新日時は Clock の時刻になる', () async {
-      expect(await rename('シャンプー'), isA<RenameItemSucceeded>());
+      expect(await rename('シャンプー'), isA<EditItemSucceeded>());
       expect((await repository.watchAll().first).single.updatedAt, now);
+    });
+
+    test('アイコンを指定すると保存される', () async {
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .editItem(item.id, '美容院', icon: ItemIcon.bath),
+        isA<EditItemSucceeded>(),
+      );
+      expect((await repository.watchAll().first).single.icon, ItemIcon.bath);
     });
   });
 

@@ -11,8 +11,8 @@ import '../database/app_database.steps.dart';
 /// - **破壊的変更を避ける。** 列の削除・リネームではなく、追加と非使用化で進める
 /// - **失敗時にテーブルを作り直さない。** 起動を中断してエラーを出す
 ///
-/// **一度出荷したステップ(`from1To2` など)は修正しない。** v3 を足すときは
-/// `from2To3` を新しく足す。**`m.createAll()` を `onUpgrade` に書かない**
+/// **一度出荷したステップ(`from1To2` など)は修正しない。** v4 を足すときは
+/// `from3To4` を新しく足す。**`m.createAll()` を `onUpgrade` に書かない**
 /// (ユーザーの記録が全損する)。
 MigrationStrategy buildMigrationStrategy(GeneratedDatabase db) {
   return MigrationStrategy(
@@ -24,6 +24,10 @@ MigrationStrategy buildMigrationStrategy(GeneratedDatabase db) {
         await m.createTable(schema.doneLogs);
         await m.createIndex(schema.doneLogsItemIdDoneAt);
         await _moveLastDoneAtToDoneLogs(m.database);
+      },
+      from2To3: (m, schema) async {
+        // 列の追加だけ。既存行は NULL(= 未選択)になる。データの移送は無い。
+        await m.addColumn(schema.items, schema.items.icon);
       },
     ),
     beforeOpen: (details) async {
