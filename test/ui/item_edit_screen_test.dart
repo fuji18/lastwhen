@@ -7,14 +7,23 @@ import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
-Widget _app(FakeItemRepository repository, Clock clock) => ProviderScope(
+Widget _app(
+  FakeItemRepository repository,
+  Clock clock, {
+  FakeCategoryRepository? categoryRepository,
+}) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
+    categoryRepositoryProvider.overrideWithValue(
+      categoryRepository ?? FakeCategoryRepository(),
+    ),
     clockProvider.overrideWithValue(clock),
   ],
   child: const App(),
@@ -246,6 +255,62 @@ void main() {
   testWidgets('アイコンピッカーが表示される', (tester) async {
     await openEditScreen(tester, '美容院');
     expect(find.byType(ItemIconPicker), findsOneWidget);
+  });
+
+  testWidgets('カテゴリピッカーが表示される', (tester) async {
+    await openEditScreen(tester, '美容院');
+    expect(find.byType(ItemCategoryPicker), findsOneWidget);
+  });
+
+  testWidgets('現在のカテゴリで開き、変更して保存すると反映される', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    final health = await categoryRepository.add('健康');
+    await categoryRepository.add('趣味');
+    final item = await repository.add('美容院', categoryId: health.id, now: now);
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    final beforeChip = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, '健康'),
+    );
+    expect(beforeChip.selected, isTrue);
+
+    await tester.tap(find.text('趣味'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, isNotNull);
+    expect(updated.categoryId, isNot(health.id));
+  });
+
+  testWidgets('未分類に戻して保存すると categoryId が null になる', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    final health = await categoryRepository.add('健康');
+    final item = await repository.add('美容院', categoryId: health.id, now: now);
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(uncategorizedLabel));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, isNull);
   });
 
   testWidgets('削除失敗なら対象を残して編集画面にエラーを表示する', (tester) async {

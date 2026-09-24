@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/aging_stage.dart';
+import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_icon.dart';
@@ -9,6 +10,7 @@ Item _item(
   DateTime? lastDoneAt, {
   List<DateTime> recentDoneAts = const [],
   ItemIcon? icon,
+  CategoryId? categoryId,
 }) => Item(
   id: const ItemId('item-1'),
   name: '美容院',
@@ -18,6 +20,7 @@ Item _item(
   sortOrder: 0,
   recentDoneAts: recentDoneAts,
   icon: icon,
+  categoryId: categoryId,
 );
 
 void main() {
@@ -45,6 +48,19 @@ void main() {
   test('アイコンが無い項目は icon が null', () {
     final view = ItemView.from(_item(null), now: now);
     expect(view.icon, isNull);
+  });
+
+  test('ItemView.from はカテゴリを引き継ぐ', () {
+    final view = ItemView.from(
+      _item(null, categoryId: const CategoryId('category-1')),
+      now: now,
+    );
+    expect(view.categoryId, const CategoryId('category-1'));
+  });
+
+  test('カテゴリが無い項目は categoryId が null', () {
+    final view = ItemView.from(_item(null), now: now);
+    expect(view.categoryId, isNull);
   });
 
   test('DaysAgo を含めて同じ内容の表示モデルは等しい', () {

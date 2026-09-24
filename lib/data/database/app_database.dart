@@ -9,6 +9,26 @@ import '../migrations/migrations.dart';
 
 part 'app_database.g.dart';
 
+/// `categories` テーブル。定義は `docs/glossary.md`「categories テーブル」が正。v4 で追加。
+@DataClassName('CategoryRow')
+class Categories extends Table {
+  /// UUID v4。採番は `CategoryRepositoryImpl`(初期カテゴリはマイグレーション)が行う。
+  TextColumn get id => text().named('id')();
+
+  /// カテゴリ名。長さ・重複の検証はドメイン層が持つので、ここは NOT NULL だけを課す
+  /// (UNIQUE も付けない。一度出荷した制約は修正できない)。
+  TextColumn get name => text().named('name')();
+
+  /// 表示順。`MAX(sort_order) + 1` で採番する。
+  IntColumn get sortOrder => integer().named('sort_order')();
+
+  @override
+  String get tableName => 'categories';
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 /// `items` テーブル。列の定義は `docs/glossary.md`「items テーブル」が正。
 ///
 /// 日時を整数で持つのは、保存形式が **UTC のエポックミリ秒**だから
@@ -42,6 +62,12 @@ class Items extends Table {
   /// 未知の値はドメインへの変換で未選択として扱う。
   TextColumn get icon => text().named('icon').nullable()();
 
+  /// カテゴリ。**NULL = 未分類。** v4 で追加。カテゴリの削除で NULL に戻る(ON DELETE SET NULL)。
+  TextColumn get categoryId => text()
+      .named('category_id')
+      .nullable()
+      .references(Categories, #id, onDelete: KeyAction.setNull)();
+
   @override
   String get tableName => 'items';
 
@@ -71,8 +97,8 @@ class DoneLogs extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// アプリのローカル DB。テーブルは `items` と `done_logs`(v2 で追加)。
-@DriftDatabase(tables: [Items, DoneLogs])
+/// アプリのローカル DB。テーブルは `categories`(v4)・`items`・`done_logs`(v2 で追加)。
+@DriftDatabase(tables: [Categories, Items, DoneLogs])
 class AppDatabase extends _$AppDatabase {
   /// 端末のドキュメント領域のファイルを開く。
   AppDatabase() : super(_openConnection());
@@ -81,7 +107,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => buildMigrationStrategy(this);

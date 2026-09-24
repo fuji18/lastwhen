@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
+import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_repository.dart';
@@ -33,7 +34,12 @@ final class FakeItemRepository implements ItemRepository {
   }
 
   @override
-  Future<Item> add(String name, {ItemIcon? icon, required DateTime now}) async {
+  Future<Item> add(
+    String name, {
+    ItemIcon? icon,
+    CategoryId? categoryId,
+    required DateTime now,
+  }) async {
     _failIfConfigured();
     final timestamp = _normalize(now);
     // 実装と同じ MAX + 1 採番にする(空なら 0)。
@@ -51,6 +57,7 @@ final class FakeItemRepository implements ItemRepository {
       updatedAt: timestamp,
       sortOrder: sortOrder,
       icon: icon,
+      categoryId: categoryId,
     );
     _items.add(item);
     _emit();
@@ -62,12 +69,19 @@ final class FakeItemRepository implements ItemRepository {
     ItemId id, {
     required String name,
     required ItemIcon? icon,
+    required CategoryId? categoryId,
     required DateTime now,
   }) async {
     _failIfConfigured();
     _update(
       id,
-      (item) => _copy(item, name: name, icon: icon, updatedAt: _normalize(now)),
+      (item) => _copy(
+        item,
+        name: name,
+        icon: icon,
+        categoryId: categoryId,
+        updatedAt: _normalize(now),
+      ),
     );
   }
 
@@ -119,6 +133,23 @@ final class FakeItemRepository implements ItemRepository {
 
   /// 購読を終了する。テストの `addTearDown` で呼ぶ。
   Future<void> dispose() => _controller.close();
+
+  /// [id] のカテゴリを持つ項目をすべて未分類(null)にして emit する。`updatedAt` は変えない。
+  ///
+  /// `FakeCategoryRepository.delete` から呼ばれる(実装の ON DELETE SET NULL に相当)。
+  /// `writeError` は見ない(呼び出し元が見る)。
+  void clearCategory(CategoryId id) {
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      if (_items[i].categoryId == id) {
+        _items[i] = _copy(_items[i], categoryId: null);
+        changed = true;
+      }
+    }
+    if (changed) {
+      _emit();
+    }
+  }
 
   /// 書き込み失敗が仕込まれていれば投げる。
   void _failIfConfigured() {
@@ -179,6 +210,7 @@ final class FakeItemRepository implements ItemRepository {
     DateTime? updatedAt,
     List<DateTime>? recentDoneAts,
     Object? icon = _unset,
+    Object? categoryId = _unset,
   }) {
     return Item(
       id: source.id,
@@ -191,6 +223,9 @@ final class FakeItemRepository implements ItemRepository {
       sortOrder: source.sortOrder,
       recentDoneAts: recentDoneAts ?? source.recentDoneAts,
       icon: identical(icon, _unset) ? source.icon : icon as ItemIcon?,
+      categoryId: identical(categoryId, _unset)
+          ? source.categoryId
+          : categoryId as CategoryId?,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'category.dart';
 import 'item.dart';
 import 'item_icon.dart';
 
@@ -11,14 +12,21 @@ abstract interface class ItemRepository {
   Stream<List<Item>> watchAll();
 
   /// 項目を追加する。id は UUID v4 で実装側が採番する。[icon] が null なら未選択。
-  Future<Item> add(String name, {ItemIcon? icon, required DateTime now});
+  /// [categoryId] が null なら未分類。
+  Future<Item> add(
+    String name, {
+    ItemIcon? icon,
+    CategoryId? categoryId,
+    required DateTime now,
+  });
 
-  /// 項目名とアイコンを変更する。**最終実施日と履歴は変えない。**
-  /// [icon] に null を渡すと未選択に戻す(「変更しない」の意味ではない)。
+  /// 項目名・アイコン・カテゴリを変更する。**最終実施日と履歴は変えない。**
+  /// [icon] / [categoryId] に null を渡すと未選択 / 未分類に戻す(「変更しない」の意味ではない)。
   Future<void> edit(
     ItemId id, {
     required String name,
     required ItemIcon? icon,
+    required CategoryId? categoryId,
     required DateTime now,
   });
 

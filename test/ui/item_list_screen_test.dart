@@ -4,20 +4,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
+import 'package:lastwhen/ui/widgets/category_filter_bar.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
-Widget _app(FakeItemRepository repository, Clock clock) => ProviderScope(
+Widget _app(
+  FakeItemRepository repository,
+  Clock clock, {
+  FakeCategoryRepository? categoryRepository,
+}) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
+    categoryRepositoryProvider.overrideWithValue(
+      categoryRepository ?? FakeCategoryRepository(),
+    ),
     clockProvider.overrideWithValue(clock),
   ],
   child: const App(),
@@ -350,6 +360,100 @@ void main() {
       await tester.pumpAndSettle();
       expect(top(tester, '車の点検'), lessThan(top(tester, '風呂掃除')));
       expect(top(tester, '風呂掃除'), lessThan(top(tester, '美容院')));
+    });
+  });
+
+  group('カテゴリの絞り込み(F13)', () {
+    late FakeCategoryRepository categoryRepository;
+
+    setUp(() {
+      categoryRepository = FakeCategoryRepository(items: repository);
+      addTearDown(categoryRepository.dispose);
+    });
+
+    Future<void> pumpWithCategories(WidgetTester tester) async {
+      final health = await categoryRepository.add('健康');
+      await categoryRepository.add('趣味');
+      await repository.add('美容院', categoryId: health.id, now: now);
+      await repository.add('歯ブラシ交換', now: now);
+      await tester.pumpWidget(
+        _app(
+          repository,
+          FakeClock(now),
+          categoryRepository: categoryRepository,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('カテゴリ 0 件ならチップが出ない', (tester) async {
+      await pumpItems(tester);
+      await tester.pumpWidget(
+        _app(
+          repository,
+          FakeClock(now),
+          categoryRepository: categoryRepository,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryFilterBar), findsNothing);
+    });
+
+    testWidgets('絞り込むと該当だけが残り並びは維持される', (tester) async {
+      await pumpWithCategories(tester);
+      expect(find.text('美容院'), findsOneWidget);
+      expect(find.text('歯ブラシ交換'), findsOneWidget);
+      await tester.tap(find.text('健康'));
+      await tester.pumpAndSettle();
+      expect(find.text('美容院'), findsOneWidget);
+      expect(find.text('歯ブラシ交換'), findsNothing);
+    });
+
+    testWidgets('該当が 0 件になると専用の文言が出る', (tester) async {
+      await pumpWithCategories(tester);
+      await tester.tap(find.text('趣味'));
+      await tester.pumpAndSettle();
+      expect(find.text('このカテゴリの項目はありません'), findsOneWidget);
+    });
+
+    testWidgets('選択中のカテゴリを削除すると全件表示に戻る', (tester) async {
+      final health = await categoryRepository.add('健康');
+      await repository.add('美容院', categoryId: health.id, now: now);
+      await repository.add('歯ブラシ交換', now: now);
+      await tester.pumpWidget(
+        _app(
+          repository,
+          FakeClock(now),
+          categoryRepository: categoryRepository,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('健康'));
+      await tester.pumpAndSettle();
+      expect(find.text('歯ブラシ交換'), findsNothing);
+      await categoryRepository.delete(health.id);
+      await tester.pumpAndSettle();
+      expect(find.text('美容院'), findsOneWidget);
+      expect(find.text('歯ブラシ交換'), findsOneWidget);
+    });
+
+    testWidgets('絞り込み中に FAB から開いた登録画面でそのカテゴリが選択済みになる', (tester) async {
+      await pumpWithCategories(tester);
+      await tester.tap(find.text('健康'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      final chip = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, '健康'),
+      );
+      expect(chip.selected, isTrue);
+    });
+
+    testWidgets('AppBar のボタンから管理画面へ遷移する', (tester) async {
+      await pumpWithCategories(tester);
+      await tester.tap(find.byTooltip('カテゴリを管理'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryManageScreen), findsOneWidget);
     });
   });
 }

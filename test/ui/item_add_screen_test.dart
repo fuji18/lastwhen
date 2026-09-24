@@ -9,14 +9,23 @@ import 'package:lastwhen/ui/item_name_error_text.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
-Widget _app(FakeItemRepository repository, Clock clock) => ProviderScope(
+Widget _app(
+  FakeItemRepository repository,
+  Clock clock, {
+  FakeCategoryRepository? categoryRepository,
+}) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
+    categoryRepositoryProvider.overrideWithValue(
+      categoryRepository ?? FakeCategoryRepository(),
+    ),
     clockProvider.overrideWithValue(clock),
   ],
   child: const App(),
@@ -162,6 +171,46 @@ void main() {
   testWidgets('アイコンピッカーが表示される', (tester) async {
     await openAddScreen(tester);
     expect(find.byType(ItemIconPicker), findsOneWidget);
+  });
+
+  testWidgets('カテゴリを選んで保存すると項目に反映される', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    final category = await categoryRepository.add('健康');
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('項目を追加'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '美容院');
+    await tester.tap(find.text('健康'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final saved = (await repository.watchAll().first).single;
+    expect(saved.categoryId, category.id);
+  });
+
+  testWidgets('カテゴリを選ばずに保存すると未分類(null)になる', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    await categoryRepository.add('健康');
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('項目を追加'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '美容院');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final saved = (await repository.watchAll().first).single;
+    expect(saved.categoryId, isNull);
+  });
+
+  testWidgets('カテゴリピッカーが表示される', (tester) async {
+    await openAddScreen(tester);
+    expect(find.byType(ItemCategoryPicker), findsOneWidget);
   });
 
   test('入力拒否の理由を入力欄の文言に変換する', () {

@@ -1,3 +1,4 @@
+import 'category.dart';
 import 'item_icon.dart';
 
 /// 項目 ID。素の String と取り違えないための型。
@@ -16,6 +17,7 @@ final class Item {
     required this.sortOrder,
     this.recentDoneAts = const <DateTime>[],
     this.icon,
+    this.categoryId,
   });
 
   final ItemId id;
@@ -42,6 +44,9 @@ final class Item {
   /// 項目のアイコン。**null は未選択**(UI が既定アイコンを描く)。
   final ItemIcon? icon;
 
+  /// 項目のカテゴリ。**null は未分類。**
+  final CategoryId? categoryId;
+
   @override
   bool operator ==(Object other) =>
       other is Item &&
@@ -52,7 +57,8 @@ final class Item {
       other.updatedAt == updatedAt &&
       other.sortOrder == sortOrder &&
       _listEquals(other.recentDoneAts, recentDoneAts) &&
-      other.icon == icon;
+      other.icon == icon &&
+      other.categoryId == categoryId;
 
   @override
   int get hashCode => Object.hash(
@@ -64,6 +70,7 @@ final class Item {
     sortOrder,
     Object.hashAll(recentDoneAts),
     icon,
+    categoryId,
   );
 }
 

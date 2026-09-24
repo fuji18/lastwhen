@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/category.dart';
 import '../../domain/item_icon.dart';
 import '../../domain/item_name.dart';
 import '../../state/add_item_result.dart';
+import '../../state/category_filter.dart';
+import '../../state/category_list_notifier.dart';
 import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
 import '../widgets/item_icon_picker.dart';
+import '../widgets/item_category_picker.dart';
 
 /// 項目の登録画面。**必須の入力は項目名 1 つだけ**(F2)。アイコン(F14)は任意で、選ばなければ
 /// 既定アイコンになる。必須の入力を増やすと「30 秒以内に登録できる」という成功指標と衝突する。
 class ItemAddScreen extends ConsumerStatefulWidget {
-  /// 登録画面を作る。
-  const ItemAddScreen({super.key});
+  /// 登録画面を作る。[initialCategoryId] は開いた時点で選ばれているカテゴリ
+  /// (一覧の絞り込み)。
+  const ItemAddScreen({this.initialCategoryId, super.key});
+
+  /// 開いた時点で選ばれているカテゴリ(一覧の絞り込み)。
+  final CategoryId? initialCategoryId;
 
   @override
   ConsumerState<ItemAddScreen> createState() => _ItemAddScreenState();
@@ -29,6 +37,9 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
 
   /// 選択中のアイコン。null は未選択(既定アイコンになる)。
   ItemIcon? _icon;
+
+  /// 選択中のカテゴリ。null は未分類。
+  late CategoryId? _categoryId = widget.initialCategoryId;
 
   @override
   void dispose() {
@@ -79,6 +90,12 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
                 enabled: !_isSaving,
               ),
               const SizedBox(height: 24),
+              ItemCategoryPicker(
+                selected: _categoryId,
+                onChanged: (value) => setState(() => _categoryId = value),
+                enabled: !_isSaving,
+              ),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isSaving ? null : _save,
                 child: const Text('保存'),
@@ -105,9 +122,15 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
       _isSaving = true;
       _errorText = null;
     });
+    final categories = ref.read(categoryListProvider).value ?? const [];
     final result = await ref
         .read(itemListProvider.notifier)
-        .addItem(_controller.text, icon: _icon);
+        .addItem(
+          _controller.text,
+          icon: _icon,
+          // 編集中にカテゴリが削除された場合に外部キー違反を起こさない。
+          categoryId: resolveCategoryId(_categoryId, categories),
+        );
     if (!mounted) {
       return;
     }

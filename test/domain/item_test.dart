@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 
@@ -120,6 +121,20 @@ void main() {
         updatedAt: a.updatedAt,
         sortOrder: a.sortOrder,
         icon: ItemIcon.bath,
+      );
+      expect(a == b, isFalse);
+    });
+
+    test('カテゴリが違えば等しくない', () {
+      final a = baseItem();
+      final b = Item(
+        id: a.id,
+        name: a.name,
+        lastDoneAt: a.lastDoneAt,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+        sortOrder: a.sortOrder,
+        categoryId: const CategoryId('category-1'),
       );
       expect(a == b, isFalse);
     });

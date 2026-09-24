@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/category.dart';
 import '../domain/item.dart';
 import '../domain/item_icon.dart';
 import '../domain/item_name.dart';
@@ -61,7 +62,11 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   /// 直前の値のまま残り、UI が一覧ごとエラー画面に切り替わることがない。
   ///
   /// **楽観的 UI 更新を採らない**(`CLAUDE.md`)。保存の完了を待ってから返る。
-  Future<AddItemResult> addItem(String rawName, {ItemIcon? icon}) async {
+  Future<AddItemResult> addItem(
+    String rawName, {
+    ItemIcon? icon,
+    CategoryId? categoryId,
+  }) async {
     switch (validateItemName(rawName)) {
       case InvalidItemName(:final reason):
         return AddItemRejected(reason);
@@ -69,7 +74,12 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
         try {
           await ref
               .read(itemRepositoryProvider)
-              .add(value, icon: icon, now: ref.read(clockProvider).now());
+              .add(
+                value,
+                icon: icon,
+                categoryId: categoryId,
+                now: ref.read(clockProvider).now(),
+              );
           return const AddItemSucceeded();
         } catch (error, stackTrace) {
           // lib/state は package:flutter/ を import できないので debugPrint は使えない(判断9)。
@@ -150,7 +160,7 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     }
   }
 
-  /// 項目名とアイコンを変更する。**最終実施日は変わらない**(判断6)。
+  /// 項目名・アイコン・カテゴリを変更する。**最終実施日は変わらない**(判断6)。
   ///
   /// 検証は登録と同じ `validateItemName`(`docs/product-requirements.md` F6)。
   /// 一覧に無い ID は書き込まず [EditItemIgnored] を返す(判断7)。
@@ -158,6 +168,7 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     ItemId id,
     String rawName, {
     required ItemIcon? icon,
+    required CategoryId? categoryId,
   }) async {
     switch (validateItemName(rawName)) {
       case InvalidItemName(:final reason):
@@ -174,6 +185,7 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
                 id,
                 name: value,
                 icon: icon,
+                categoryId: categoryId,
                 now: ref.read(clockProvider).now(),
               );
           return const EditItemSucceeded();

@@ -8,12 +8,14 @@ import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
@@ -76,13 +78,22 @@ void main() {
   Widget app() => ProviderScope(
     overrides: [
       itemRepositoryProvider.overrideWithValue(repository),
+      categoryRepositoryProvider.overrideWithValue(FakeCategoryRepository()),
       clockProvider.overrideWithValue(FakeClock(now)),
     ],
     child: const App(),
   );
 
   group('用語', () {
-    for (final screen in ['一覧(項目あり)', '一覧(空)', '登録', '詳細', '編集', '削除確認']) {
+    for (final screen in [
+      '一覧(項目あり)',
+      '一覧(空)',
+      '登録',
+      '詳細',
+      '編集',
+      '削除確認',
+      'カテゴリ管理',
+    ]) {
       testWidgets('$screen の描画文字列が表記ゆれの禁止一覧に違反しない', (tester) async {
         tester.view.physicalSize = const Size(360 * 3, 640 * 3);
         tester.view.devicePixelRatio = 3;
@@ -115,10 +126,17 @@ void main() {
             await tester.pumpAndSettle();
             expect(find.byType(ItemEditScreen), findsOneWidget);
             if (screen == '削除確認') {
+              // カテゴリピッカーが増え、この画面サイズでは「削除」が画面外に出る。
+              await tester.ensureVisible(find.text('削除'));
+              await tester.pumpAndSettle();
               await tester.tap(find.text('削除'));
               await tester.pumpAndSettle();
               expect(find.byType(AlertDialog), findsOneWidget);
             }
+          case 'カテゴリ管理':
+            await tester.tap(find.byTooltip('カテゴリを管理'));
+            await tester.pumpAndSettle();
+            expect(find.byType(CategoryManageScreen), findsOneWidget);
         }
         _expectAllowed(_renderedTexts(tester));
         expect(tester.takeException(), isNull);
