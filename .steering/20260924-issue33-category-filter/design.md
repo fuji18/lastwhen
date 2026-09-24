@@ -600,3 +600,25 @@ class ItemCategoryPicker extends ConsumerWidget {
   - ストリームの最初の値が届く前に `addCategory` を呼んでも、既存名との重複を検出する
 - ウィジェットテスト(`item_edit_screen` の既存テストファイル。無ければ `test/ui/screens/item_edit_screen_test.dart` を既存の画面テストの形で作る):
   - カテゴリのストリームが値を流さずに失敗する状態で、カテゴリ付きの項目の名前だけを変えて保存すると、`editItem` に元のカテゴリ ID が渡る(未分類にならない)
+
+### 追補3: 読み込み済みの一覧があるときは `future` を待たない(再レビュー指摘)
+
+**問題**: 追補2 で入れた `await future` は、一度一覧を読み込んだ後にストリームがエラーを流すと例外になる(Riverpod 3 の `future` は現在の状態が `AsyncError` なら失敗する)。次の値が届くまで追加・名前変更がすべて失敗になる。追補2 より前は、最後に届いた一覧で確かめて保存できていた。
+
+**方針**: `lib/state/category_list_notifier.dart` の `addCategory` / `renameCategory` 冒頭の待機を、**まだ一度も値を受け取っていないときだけ**にする。
+
+```dart
+// 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
+// 一度受け取っていれば、その後にストリームが失敗しても手元の一覧で確かめる。
+if (!state.hasValue) {
+  try {
+    await future;
+  } catch (_) {
+    return const AddCategoryFailed(); // renameCategory では RenameCategoryFailed()
+  }
+}
+```
+
+`state` は読むだけで書かない(判断5 の方針は維持)。
+
+**テスト**(`test/state/category_list_notifier_test.dart`): 一覧を 1 回流した後にストリームがエラーを流した状態で `addCategory` を呼ぶと、保存されて `AddCategorySucceeded` になる。Fake でエラーを流せる形が既存に無ければ、テストファイル内に小さな Fake を定義する(`item_edit_screen_test.dart` の `_FailingWatchCategoryRepository` と同じやり方)。

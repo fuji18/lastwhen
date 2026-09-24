@@ -52,3 +52,4 @@
 - [x] 19. 追補1: 一覧が無いときに編集・追加画面と選択欄でカテゴリを消さない
 - [x] 20. 追補2: `CategoryListNotifier` の重複検査を追加・名前変更の直後と最初の値の前でも効かせる
 - [x] 21. 追補のテストを足し、`dart format` / `flutter analyze --fatal-infos` / `flutter test`(変更したファイルに関係するもの)を通す
+- [x] 22. 追補3: 読み込み済みなら `future` を待たないようにし、テストを足して format / analyze / 関連テストを通す

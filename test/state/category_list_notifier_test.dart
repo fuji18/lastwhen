@@ -1,12 +1,44 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/category_name.dart';
+import 'package:lastwhen/domain/category_repository.dart';
 import 'package:lastwhen/state/category_list_notifier.dart';
 import 'package:lastwhen/state/category_results.dart';
 import 'package:lastwhen/state/providers.dart';
 
 import '../support/fake_category_repository.dart';
+
+/// 一覧を 1 回流した後、ストリームをエラーにできる Fake。
+///
+/// `_container` の `FakeCategoryRepository` は書き込みでしか失敗を再現できないため、
+/// 「一度値を受け取った後にストリームが失敗する」状態はこのテストファイル専用の Fake で作る
+/// (`test/ui/item_edit_screen_test.dart` の `_FailingWatchCategoryRepository` と同じやり方)。
+final class _FlakyWatchCategoryRepository implements CategoryRepository {
+  final StreamController<List<Category>> _controller =
+      StreamController<List<Category>>();
+
+  void emit(List<Category> categories) => _controller.add(categories);
+
+  void emitError() => _controller.addError(StateError('watch failed'));
+
+  Future<void> dispose() => _controller.close();
+
+  @override
+  Stream<List<Category>> watchAll() => _controller.stream;
+
+  @override
+  Future<Category> add(String name) async =>
+      Category(id: const CategoryId('flaky-added'), name: name, sortOrder: 0);
+
+  @override
+  Future<void> rename(CategoryId id, String name) => throw UnimplementedError();
+
+  @override
+  Future<void> delete(CategoryId id) => throw UnimplementedError();
+}
 
 Future<ProviderContainer> _container(FakeCategoryRepository repository) async {
   final container = ProviderContainer.test(
@@ -251,6 +283,33 @@ void main() {
           CategoryNameReason.duplicate,
         ),
       );
+    });
+  });
+
+  group('追補3: 読み込み済みなら future を待たない(再レビュー指摘)', () {
+    test('一覧を1回流した後にストリームが失敗しても、手元の一覧で確かめて保存できる', () async {
+      final flaky = _FlakyWatchCategoryRepository();
+      addTearDown(flaky.dispose);
+      final container = ProviderContainer.test(
+        overrides: [categoryRepositoryProvider.overrideWithValue(flaky)],
+      );
+      container.listen(categoryListProvider, (_, _) {});
+      flaky.emit(const [
+        Category(id: CategoryId('c1'), name: '健康', sortOrder: 0),
+      ]);
+      // 最初の値が届くまで待つ(`_latestCategories` が埋まる)。
+      await container.read(categoryListProvider.future);
+      flaky.emitError();
+      // エラーが `state` に反映されるまで待つ(previousData は保持されたまま `AsyncError` になる)。
+      await pumpEventQueue();
+      expect(container.read(categoryListProvider).hasValue, isTrue);
+      expect(container.read(categoryListProvider).hasError, isTrue);
+
+      final result = await container
+          .read(categoryListProvider.notifier)
+          .addCategory('趣味');
+
+      expect(result, isA<AddCategorySucceeded>());
     });
   });
 }

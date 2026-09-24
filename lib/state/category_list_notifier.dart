@@ -30,10 +30,13 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
   /// カテゴリを追加する。検証を通ったときだけ保存し、結果を返す。
   Future<AddCategoryResult> addCategory(String rawName) async {
     // 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
-    try {
-      await future;
-    } catch (_) {
-      return const AddCategoryFailed();
+    // 一度受け取っていれば、その後にストリームが失敗しても手元の一覧で確かめる。
+    if (!state.hasValue) {
+      try {
+        await future;
+      } catch (_) {
+        return const AddCategoryFailed();
+      }
     }
     switch (validateCategoryName(
       rawName,
@@ -70,10 +73,13 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
     String rawName,
   ) async {
     // 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
-    try {
-      await future;
-    } catch (_) {
-      return const RenameCategoryFailed();
+    // 一度受け取っていれば、その後にストリームが失敗しても手元の一覧で確かめる。
+    if (!state.hasValue) {
+      try {
+        await future;
+      } catch (_) {
+        return const RenameCategoryFailed();
+      }
     }
     switch (validateCategoryName(
       rawName,
