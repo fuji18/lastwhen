@@ -29,6 +29,12 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
 
   /// カテゴリを追加する。検証を通ったときだけ保存し、結果を返す。
   Future<AddCategoryResult> addCategory(String rawName) async {
+    // 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
+    try {
+      await future;
+    } catch (_) {
+      return const AddCategoryFailed();
+    }
     switch (validateCategoryName(
       rawName,
       existingNames: _latestCategories.map((c) => c.name),
@@ -40,6 +46,8 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
           final category = await ref
               .read(categoryRepositoryProvider)
               .add(value);
+          // ストリームの次の値が届くまでの間も、重複検査に今の名前を使う。
+          _latestCategories = [..._latestCategories, category];
           return AddCategorySucceeded(category);
         } catch (error, stackTrace) {
           developer.log(
@@ -61,6 +69,12 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
     CategoryId id,
     String rawName,
   ) async {
+    // 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
+    try {
+      await future;
+    } catch (_) {
+      return const RenameCategoryFailed();
+    }
     switch (validateCategoryName(
       rawName,
       existingNames: _latestCategories
@@ -75,6 +89,14 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
         }
         try {
           await ref.read(categoryRepositoryProvider).rename(id, value);
+          // ストリームの次の値が届くまでの間も、重複検査に今の名前を使う。
+          _latestCategories = [
+            for (final category in _latestCategories)
+              if (category.id == id)
+                Category(id: id, name: value, sortOrder: category.sortOrder)
+              else
+                category,
+          ];
           return const RenameCategorySucceeded();
         } catch (error, stackTrace) {
           developer.log(

@@ -194,4 +194,63 @@ void main() {
       expect(result, isA<DeleteCategoryFailed>());
     });
   });
+
+  group('追補: 重複検査のタイミング(#42 レビュー指摘)', () {
+    test('追加が成功した直後に同じ名前を追加すると重複として拒否される', () async {
+      final container = await _container(repository);
+      final notifier = container.read(categoryListProvider.notifier);
+      final first = await notifier.addCategory('健康');
+      expect(first, isA<AddCategorySucceeded>());
+      // ストリームの次の値を待たずに、続けて同じ名前を追加する。
+      final second = await notifier.addCategory('健康');
+      expect(
+        second,
+        isA<AddCategoryRejected>().having(
+          (r) => r.reason,
+          'reason',
+          CategoryNameReason.duplicate,
+        ),
+      );
+    });
+
+    test('名前変更の直後に、別のカテゴリをその名前に変えると重複として拒否される', () async {
+      final categoryA = await repository.add('健康');
+      final categoryB = await repository.add('趣味');
+      final container = await _container(repository);
+      final notifier = container.read(categoryListProvider.notifier);
+      final renamed = await notifier.renameCategory(categoryA.id, '健康2');
+      expect(renamed, isA<RenameCategorySucceeded>());
+      // ストリームの次の値を待たずに、別のカテゴリを同じ名前に変える。
+      final result = await notifier.renameCategory(categoryB.id, '健康2');
+      expect(
+        result,
+        isA<RenameCategoryRejected>().having(
+          (r) => r.reason,
+          'reason',
+          CategoryNameReason.duplicate,
+        ),
+      );
+    });
+
+    test('ストリームの最初の値が届く前に addCategory を呼んでも、既存名との重複を検出する', () async {
+      await repository.add('健康');
+      // `_container` と違い、最初の値を待たずにそのまま呼ぶ。
+      final container = ProviderContainer.test(
+        overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
+      );
+      // 購読を開始するだけで、最初の値(`.future`)は待たない。
+      container.listen(categoryListProvider, (_, _) {});
+      final result = await container
+          .read(categoryListProvider.notifier)
+          .addCategory('健康');
+      expect(
+        result,
+        isA<AddCategoryRejected>().having(
+          (r) => r.reason,
+          'reason',
+          CategoryNameReason.duplicate,
+        ),
+      );
+    });
+  });
 }

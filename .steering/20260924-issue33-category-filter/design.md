@@ -526,3 +526,77 @@ class ItemCategoryPicker extends ConsumerWidget {
 
 `dart format --output=none --set-exit-if-changed .` / `flutter analyze --fatal-infos` / `flutter test` を通す。
 生成物が analyze / format に引っかかったら既存の除外設定の範囲で扱う(新しい除外が要るなら停止して報告)。
+
+---
+
+## 追補: PR #42 レビュー指摘の修正(2026-09-24)
+
+`/code-review` で見つかった重大度「低」の 2 件を直す。どちらもこの節に書いた内容だけを実装し、他の設計は変えない。
+
+### 追補1: カテゴリ一覧が読めていないときに、項目のカテゴリを消さない
+
+**問題**: `ref.read(categoryListProvider).value ?? const []` は、読み込み中や、最初の値が届く前にストリームが失敗したときに空の一覧になる。空の一覧で `resolveCategoryId` を通すと、実在するカテゴリ ID が `null` になり、項目名だけ変えて保存しても未分類になる(記録の信頼性を損なう)。
+
+**方針**: 一覧が**まだ無い**(`value == null`)ときは「存在しない」と判定しない。**選択中の ID をそのまま使う。** 本当に削除済みだった場合は保存が外部キー違反で失敗し、既存の `EditItemFailed` / `AddItemFailed` の経路でエラーが出る(データは失われない)。
+
+1. `lib/ui/screens/item_edit_screen.dart` の `_save`:
+
+   ```dart
+   // 一覧がまだ無いときは存在を判定できない。選択を消さずにそのまま渡す。
+   final categories = ref.read(categoryListProvider).value;
+   ...
+   categoryId: categories == null
+       ? _categoryId
+       : resolveCategoryId(_categoryId, categories),
+   ```
+
+   既存の「編集中にカテゴリが削除された場合に外部キー違反を起こさない。」のコメントは残す。
+
+2. `lib/ui/screens/item_add_screen.dart` の `_save`: 1 と同じ形に直す。
+3. `lib/ui/widgets/item_category_picker.dart` の `build`: 表示も同じ判定にそろえる(一覧が無いのに「未分類」を選択中と見せない)。
+
+   ```dart
+   final loaded = ref.watch(categoryListProvider).value;
+   // 読み込み中・失敗でも「未分類」と追加チップは出す。
+   final categories = loaded ?? const <Category>[];
+   // 一覧が無いときは存在を判定できない。選択を「未分類」に見せない。
+   final effectiveSelected = loaded == null
+       ? selected
+       : resolveCategoryId(selected, loaded);
+   ```
+
+   (一覧が無く `selected` が非 null のときは、どのチップも選択状態にならない。これで正しい)
+4. `resolveCategoryId` 自体(`lib/state/category_filter.dart`)と `item_list_screen.dart` の絞り込みは**変えない**(絞り込みは「すべて」に戻っても記録は失われない)。
+
+### 追補2: 追加・名前変更の直後に同じ名前を通さない
+
+**問題**: 重複検査は `_latestCategories` を見るが、これはストリームの次の値が届くまで古いまま。追加直後にもう一度同じ名前を追加すると通る(`categories` に UNIQUE 制約は無い)。最初の値が届く前にも同じことが起きる。
+
+**方針**: `lib/state/category_list_notifier.dart` だけを直す。スキーマ・リポジトリには触れない(UNIQUE 制約の追加はマイグレーションになるため採らない)。
+
+1. `addCategory` と `renameCategory` の**先頭**(検証より前)で、最初の値を待つ:
+
+   ```dart
+   // 最初の値が届く前は `_latestCategories` が空で、重複を見逃す。
+   try {
+     await future;
+   } catch (_) {
+     return const AddCategoryFailed(); // renameCategory では RenameCategoryFailed()
+   }
+   ```
+
+   ログは出さない(ストリームの失敗は購読側で扱われる)。
+2. 保存が成功した直後、`return` の前に `_latestCategories` を手元で更新する(次のストリームの値で正しい一覧に置き換わる):
+   - `addCategory`: `_latestCategories = [..._latestCategories, category];`
+   - `renameCategory`: 該当 ID の要素を名前だけ差し替えた新しいリストにする。`Category` に `copyWith` があればそれを使い、無ければ既存のコンストラクタで作り直す(`copyWith` を新設しない)。
+   - コメント: `// ストリームの次の値が届くまでの間も、重複検査に今の名前を使う。`
+3. `state` は触らない(判断5 の方針どおり)。`deleteCategory` は変えない。
+
+### 追補のテスト
+
+- `test/state/category_list_notifier_test.dart`(既存の Fake の使い方に合わせる):
+  - 追加が成功した直後(ストリームがまだ新しい値を流していない状態)に同じ名前を追加すると `AddCategoryRejected`(重複)になる。Fake の `watchAll` が追加を即時に流す作りなら、流さない状態を作れる形で書く。作れなければ、その旨を報告に書いてこのケースは省略してよい
+  - 名前変更の直後に、別のカテゴリをその名前に変えると `RenameCategoryRejected` になる(同上)
+  - ストリームの最初の値が届く前に `addCategory` を呼んでも、既存名との重複を検出する
+- ウィジェットテスト(`item_edit_screen` の既存テストファイル。無ければ `test/ui/screens/item_edit_screen_test.dart` を既存の画面テストの形で作る):
+  - カテゴリのストリームが値を流さずに失敗する状態で、カテゴリ付きの項目の名前だけを変えて保存すると、`editItem` に元のカテゴリ ID が渡る(未分類にならない)

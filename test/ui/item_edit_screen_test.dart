@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
+import 'package:lastwhen/domain/category.dart';
+import 'package:lastwhen/domain/category_repository.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
@@ -17,7 +19,7 @@ import '../support/fake_item_repository.dart';
 Widget _app(
   FakeItemRepository repository,
   Clock clock, {
-  FakeCategoryRepository? categoryRepository,
+  CategoryRepository? categoryRepository,
 }) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
@@ -28,6 +30,23 @@ Widget _app(
   ],
   child: const App(),
 );
+
+/// 一覧が**一度も届かないまま**失敗するカテゴリリポジトリ(追補1 の検証用)。
+/// `watchAll` 以外は呼ばれない前提で `UnimplementedError` にしておく。
+final class _FailingWatchCategoryRepository implements CategoryRepository {
+  @override
+  Stream<List<Category>> watchAll() =>
+      Stream<List<Category>>.error(StateError('watch failed'));
+
+  @override
+  Future<Category> add(String name) => throw UnimplementedError();
+
+  @override
+  Future<void> rename(CategoryId id, String name) => throw UnimplementedError();
+
+  @override
+  Future<void> delete(CategoryId id) => throw UnimplementedError();
+}
 
 void main() {
   final now = DateTime.utc(2026, 9, 16, 3);
@@ -311,6 +330,28 @@ void main() {
       (i) => i.id == item.id,
     );
     expect(updated.categoryId, isNull);
+  });
+
+  testWidgets('カテゴリ一覧が読めない状態で名前だけ変えても、元のカテゴリ ID のまま保存される', (tester) async {
+    const categoryId = CategoryId('cat-1');
+    final item = await repository.add('美容院', categoryId: categoryId, now: now);
+    await tester.pumpWidget(
+      _app(
+        repository,
+        FakeClock(now),
+        categoryRepository: _FailingWatchCategoryRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    await saveName(tester, 'シャンプー');
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, categoryId);
   });
 
   testWidgets('削除失敗なら対象を残して編集画面にエラーを表示する', (tester) async {

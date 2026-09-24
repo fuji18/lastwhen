@@ -152,7 +152,8 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
       _isBusy = true;
       _errorText = null;
     });
-    final categories = ref.read(categoryListProvider).value ?? const [];
+    // 一覧がまだ無いときは存在を判定できない。選択を消さずにそのまま渡す。
+    final categories = ref.read(categoryListProvider).value;
     final result = await ref
         .read(itemListProvider.notifier)
         .editItem(
@@ -160,7 +161,9 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
           _controller.text,
           icon: _icon,
           // 編集中にカテゴリが削除された場合に外部キー違反を起こさない。
-          categoryId: resolveCategoryId(_categoryId, categories),
+          categoryId: categories == null
+              ? _categoryId
+              : resolveCategoryId(_categoryId, categories),
         );
     if (!mounted) {
       return;

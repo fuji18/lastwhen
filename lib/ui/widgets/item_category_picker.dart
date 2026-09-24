@@ -34,9 +34,13 @@ class ItemCategoryPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final loaded = ref.watch(categoryListProvider).value;
     // 読み込み中・失敗でも「未分類」と追加チップは出す。
-    final categories = ref.watch(categoryListProvider).value ?? const [];
-    final effectiveSelected = resolveCategoryId(selected, categories);
+    final categories = loaded ?? const <Category>[];
+    // 一覧が無いときは存在を判定できない。選択を「未分類」に見せない。
+    final effectiveSelected = loaded == null
+        ? selected
+        : resolveCategoryId(selected, loaded);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
