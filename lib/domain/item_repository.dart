@@ -1,4 +1,5 @@
 import 'item.dart';
+import 'item_icon.dart';
 
 /// 項目の永続化。実装はデータレイヤー(#4)に置く。
 ///
@@ -9,11 +10,17 @@ abstract interface class ItemRepository {
   /// 各 [Item.recentDoneAts] も同時に埋めて流す。
   Stream<List<Item>> watchAll();
 
-  /// 項目を追加する。id は UUID v4 で実装側が採番する。
-  Future<Item> add(String name, {required DateTime now});
+  /// 項目を追加する。id は UUID v4 で実装側が採番する。[icon] が null なら未選択。
+  Future<Item> add(String name, {ItemIcon? icon, required DateTime now});
 
-  /// 項目名を変更する。
-  Future<void> rename(ItemId id, String name, {required DateTime now});
+  /// 項目名とアイコンを変更する。**最終実施日と履歴は変えない。**
+  /// [icon] に null を渡すと未選択に戻す(「変更しない」の意味ではない)。
+  Future<void> edit(
+    ItemId id, {
+    required String name,
+    required ItemIcon? icon,
+    required DateTime now,
+  });
 
   /// 項目を削除する。**履歴(`done_logs`)も一緒に消える**(外部キーの CASCADE)。
   Future<void> delete(ItemId id);

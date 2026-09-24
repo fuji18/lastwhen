@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -188,6 +190,62 @@ void main() {
       findsOneWidget,
     );
     expect((await repository.watchAll().first).single.lastDoneAt, isNull);
+  });
+
+  testWidgets('現在のアイコンが選択状態で開く', (tester) async {
+    final item = await repository.add('風呂掃除', icon: ItemIcon.bath, now: now);
+    await repository.markDone(item.id, DateTime.utc(2026, 9, 12, 3));
+    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('風呂掃除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    final semantics = tester.getSemantics(find.byTooltip('風呂'));
+    expect(semantics.flagsCollection.isSelected.toBoolOrNull(), isTrue);
+  });
+
+  testWidgets('アイコンを変えて保存すると一覧に反映し経過日数は変わらない', (tester) async {
+    await openEditScreen(tester, '美容院');
+    await tester.tap(find.byTooltip('風呂'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ItemCard),
+        matching: find.byIcon(Icons.bathtub),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('4日前'), findsOneWidget);
+    expect((await repository.watchAll().first).first.icon, ItemIcon.bath);
+  });
+
+  testWidgets('「指定なし」で保存すると既定アイコンに戻る', (tester) async {
+    final item = await repository.add('風呂掃除', icon: ItemIcon.bath, now: now);
+    await repository.markDone(item.id, DateTime.utc(2026, 9, 12, 3));
+    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('風呂掃除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('指定なし'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ItemCard),
+        matching: find.byIcon(Icons.event_repeat),
+      ),
+      findsOneWidget,
+    );
+    expect((await repository.watchAll().first).first.icon, isNull);
+  });
+
+  testWidgets('アイコンピッカーが表示される', (tester) async {
+    await openEditScreen(tester, '美容院');
+    expect(find.byType(ItemIconPicker), findsOneWidget);
   });
 
   testWidgets('削除失敗なら対象を残して編集画面にエラーを表示する', (tester) async {

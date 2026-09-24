@@ -9,6 +9,7 @@ import 'package:lastwhen/ui/item_name_error_text.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -133,6 +134,34 @@ void main() {
       '美容院',
     );
     expect(await repository.watchAll().first, isEmpty);
+  });
+
+  testWidgets('アイコンを選ばずに保存すると一覧のカードは既定アイコン', (tester) async {
+    await openAddScreen(tester);
+    await tester.enterText(find.byType(TextField), '美容院');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.event_repeat), findsOneWidget);
+  });
+
+  testWidgets('「風呂」を選んで保存すると一覧のカードに bathtub アイコンが出る', (tester) async {
+    await openAddScreen(tester);
+    await tester.enterText(find.byType(TextField), '風呂掃除');
+    await tester.tap(find.byTooltip('風呂'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ItemCard),
+        matching: find.byIcon(Icons.bathtub),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('アイコンピッカーが表示される', (tester) async {
+    await openAddScreen(tester);
+    expect(find.byType(ItemIconPicker), findsOneWidget);
   });
 
   test('入力拒否の理由を入力欄の文言に変換する', () {

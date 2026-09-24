@@ -9,6 +9,7 @@ import 'generated/schema.dart';
 
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -118,6 +119,74 @@ void main() {
 
         // 未実施の項目には履歴が作られない。
         expect(byItemId.containsKey('item-never-done'), isFalse);
+      },
+    );
+  });
+
+  // v2 → v3 は「icon 列を追加するだけ」の列追加なので、既存行が不変で
+  // icon が NULL(未選択)になることを検証する(design.md 判断3 手順5)。
+  test('v2 から v3 への移行で items は不変・icon は null、done_logs も不変', () async {
+    final oldItemsData = <v2.ItemsData>[
+      const v2.ItemsData(
+        id: 'item-done-1',
+        name: '記録済み1',
+        lastDoneAt: 1000,
+        createdAt: 100,
+        updatedAt: 1000,
+        sortOrder: 0,
+      ),
+      const v2.ItemsData(
+        id: 'item-never-done',
+        name: '未実施',
+        lastDoneAt: null,
+        createdAt: 300,
+        updatedAt: 300,
+        sortOrder: 1,
+      ),
+    ];
+    final expectedNewItemsData = <v3.ItemsData>[
+      const v3.ItemsData(
+        id: 'item-done-1',
+        name: '記録済み1',
+        lastDoneAt: 1000,
+        createdAt: 100,
+        updatedAt: 1000,
+        sortOrder: 0,
+        icon: null,
+      ),
+      const v3.ItemsData(
+        id: 'item-never-done',
+        name: '未実施',
+        lastDoneAt: null,
+        createdAt: 300,
+        updatedAt: 300,
+        sortOrder: 1,
+        icon: null,
+      ),
+    ];
+    final oldDoneLogsData = <v2.DoneLogsData>[
+      const v2.DoneLogsData(id: 'log-1', itemId: 'item-done-1', doneAt: 1000),
+    ];
+    final expectedNewDoneLogsData = <v3.DoneLogsData>[
+      const v3.DoneLogsData(id: 'log-1', itemId: 'item-done-1', doneAt: 1000),
+    ];
+
+    await verifier.testWithDataIntegrity(
+      oldVersion: 2,
+      newVersion: 3,
+      createOld: v2.DatabaseAtV2.new,
+      createNew: v3.DatabaseAtV3.new,
+      openTestedDatabase: AppDatabase.forTesting,
+      createItems: (batch, oldDb) {
+        batch.insertAll(oldDb.items, oldItemsData);
+        batch.insertAll(oldDb.doneLogs, oldDoneLogsData);
+      },
+      validateItems: (newDb) async {
+        expect(expectedNewItemsData, await newDb.select(newDb.items).get());
+        expect(
+          expectedNewDoneLogsData,
+          await newDb.select(newDb.doneLogs).get(),
+        );
       },
     );
   });

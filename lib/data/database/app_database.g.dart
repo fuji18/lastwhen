@@ -70,6 +70,15 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
+  @override
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+    'icon',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -78,6 +87,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRow> {
     createdAt,
     updatedAt,
     sortOrder,
+    icon,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -137,6 +147,12 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRow> {
     } else if (isInserting) {
       context.missing(_sortOrderMeta);
     }
+    if (data.containsKey('icon')) {
+      context.handle(
+        _iconMeta,
+        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
     return context;
   }
 
@@ -170,6 +186,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRow> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      icon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon'],
+      ),
     );
   }
 
@@ -199,6 +219,12 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
 
   /// 表示順。`MAX(sort_order) + 1` で採番する。MVP では常に登録順と一致する。
   final int sortOrder;
+
+  /// アイコンの保存キー(`ItemIcon.key`)。**NULL = 未選択。** v3 で追加。
+  ///
+  /// CHECK 制約を付けない。候補は今後増えるうえ、一度出荷した制約は修正できない。
+  /// 未知の値はドメインへの変換で未選択として扱う。
+  final String? icon;
   const ItemRow({
     required this.id,
     required this.name,
@@ -206,6 +232,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
     required this.createdAt,
     required this.updatedAt,
     required this.sortOrder,
+    this.icon,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -218,6 +245,9 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || icon != null) {
+      map['icon'] = Variable<String>(icon);
+    }
     return map;
   }
 
@@ -231,6 +261,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       sortOrder: Value(sortOrder),
+      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
     );
   }
 
@@ -246,6 +277,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      icon: serializer.fromJson<String?>(json['icon']),
     );
   }
   @override
@@ -258,6 +290,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'icon': serializer.toJson<String?>(icon),
     };
   }
 
@@ -268,6 +301,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
     int? createdAt,
     int? updatedAt,
     int? sortOrder,
+    Value<String?> icon = const Value.absent(),
   }) => ItemRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -275,6 +309,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     sortOrder: sortOrder ?? this.sortOrder,
+    icon: icon.present ? icon.value : this.icon,
   );
   ItemRow copyWithCompanion(ItemsCompanion data) {
     return ItemRow(
@@ -286,6 +321,7 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      icon: data.icon.present ? data.icon.value : this.icon,
     );
   }
 
@@ -297,14 +333,15 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
           ..write('lastDoneAt: $lastDoneAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('icon: $icon')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, lastDoneAt, createdAt, updatedAt, sortOrder);
+      Object.hash(id, name, lastDoneAt, createdAt, updatedAt, sortOrder, icon);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -314,7 +351,8 @@ class ItemRow extends DataClass implements Insertable<ItemRow> {
           other.lastDoneAt == this.lastDoneAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.icon == this.icon);
 }
 
 class ItemsCompanion extends UpdateCompanion<ItemRow> {
@@ -324,6 +362,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int> sortOrder;
+  final Value<String?> icon;
   final Value<int> rowid;
   const ItemsCompanion({
     this.id = const Value.absent(),
@@ -332,6 +371,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.icon = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ItemsCompanion.insert({
@@ -341,6 +381,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
     required int createdAt,
     required int updatedAt,
     required int sortOrder,
+    this.icon = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -354,6 +395,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? sortOrder,
+    Expression<String>? icon,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -363,6 +405,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (icon != null) 'icon': icon,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -374,6 +417,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int>? sortOrder,
+    Value<String?>? icon,
     Value<int>? rowid,
   }) {
     return ItemsCompanion(
@@ -383,6 +427,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sortOrder: sortOrder ?? this.sortOrder,
+      icon: icon ?? this.icon,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -408,6 +453,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -423,6 +471,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRow> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('icon: $icon, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -730,6 +779,7 @@ typedef $$ItemsTableCreateCompanionBuilder = ItemsCompanion Function({
   required int createdAt,
   required int updatedAt,
   required int sortOrder,
+  Value<String?> icon,
   Value<int> rowid,
 });
 typedef $$ItemsTableUpdateCompanionBuilder = ItemsCompanion Function({
@@ -739,6 +789,7 @@ typedef $$ItemsTableUpdateCompanionBuilder = ItemsCompanion Function({
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int> sortOrder,
+  Value<String?> icon,
   Value<int> rowid,
 });
 
@@ -800,6 +851,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get icon => $composableBuilder(
+    column: $table.icon,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -867,6 +923,11 @@ class $$ItemsTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ItemsTableAnnotationComposer
@@ -897,6 +958,9 @@ class $$ItemsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
 
   Expression<T> doneLogsRefs<T extends Object>(
     Expression<T> Function($$DoneLogsTableAnnotationComposer a) f,
@@ -958,6 +1022,7 @@ class $$ItemsTableTableManager
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ItemsCompanion(
                 id: id,
@@ -966,6 +1031,7 @@ class $$ItemsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 sortOrder: sortOrder,
+                icon: icon,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -976,6 +1042,7 @@ class $$ItemsTableTableManager
                 required int createdAt,
                 required int updatedAt,
                 required int sortOrder,
+                Value<String?> icon = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ItemsCompanion.insert(
                 id: id,
@@ -984,6 +1051,7 @@ class $$ItemsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 sortOrder: sortOrder,
+                icon: icon,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -36,6 +36,12 @@ class Items extends Table {
   /// 表示順。`MAX(sort_order) + 1` で採番する。MVP では常に登録順と一致する。
   IntColumn get sortOrder => integer().named('sort_order')();
 
+  /// アイコンの保存キー(`ItemIcon.key`)。**NULL = 未選択。** v3 で追加。
+  ///
+  /// CHECK 制約を付けない。候補は今後増えるうえ、一度出荷した制約は修正できない。
+  /// 未知の値はドメインへの変換で未選択として扱う。
+  TextColumn get icon => text().named('icon').nullable()();
+
   @override
   String get tableName => 'items';
 
@@ -75,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => buildMigrationStrategy(this);

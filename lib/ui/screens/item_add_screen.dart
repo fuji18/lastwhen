@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/item_icon.dart';
 import '../../domain/item_name.dart';
 import '../../state/add_item_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
+import '../widgets/item_icon_picker.dart';
 
-/// 項目の登録画面。**入力は項目名 1 つだけ**(`docs/product-requirements.md` F2)。
-///
-/// カテゴリ・アイコン・目安期間は P1。ここで入力項目を増やすと
-/// 「30 秒以内に登録できる」という成功指標と正面から衝突する。
+/// 項目の登録画面。**必須の入力は項目名 1 つだけ**(F2)。アイコン(F14)は任意で、選ばなければ
+/// 既定アイコンになる。必須の入力を増やすと「30 秒以内に登録できる」という成功指標と衝突する。
 class ItemAddScreen extends ConsumerStatefulWidget {
   /// 登録画面を作る。
   const ItemAddScreen({super.key});
@@ -26,6 +26,9 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
 
   /// 保存中は二度押しを塞ぐ(判断7)。
   bool _isSaving = false;
+
+  /// 選択中のアイコン。null は未選択(既定アイコンになる)。
+  ItemIcon? _icon;
 
   @override
   void dispose() {
@@ -70,6 +73,12 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
                 onSubmitted: (_) => _save(),
               ),
               const SizedBox(height: 24),
+              ItemIconPicker(
+                selected: _icon,
+                onChanged: (value) => setState(() => _icon = value),
+                enabled: !_isSaving,
+              ),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isSaving ? null : _save,
                 child: const Text('保存'),
@@ -98,7 +107,7 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
     });
     final result = await ref
         .read(itemListProvider.notifier)
-        .addItem(_controller.text);
+        .addItem(_controller.text, icon: _icon);
     if (!mounted) {
       return;
     }

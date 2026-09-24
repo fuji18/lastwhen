@@ -53,6 +53,7 @@ class Item {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int sortOrder;        // 登録順。F30 の並びのタイブレークに使う
+  final ItemIcon? icon;       // null = 未選択(F14)
 }
 ```
 
@@ -65,6 +66,7 @@ class Item {
 | `lastDoneAt` | NULL 許容。**NULL = 一度も記録がない**(F4 の「未実施」表示の根拠) |
 | `createdAt` / `updatedAt` | NOT NULL。UTC で保存し、表示時に端末のローカル時刻へ変換する。`updatedAt` は**書き込みが起きた時刻**を表すので、「やった」の取り消しでも前進させる(巻き戻さない) |
 | `sortOrder` | NOT NULL。既定は `MAX(sort_order) + 1`。**MVP では常に登録順と一致する**(並び替えが無いため)。採番のために INSERT ごとに 1 本クエリが増えるが、P1 の F15(並び替え)で初めて意味を持つ列なので、そのコストは許容する。 F30 では相対経過度の同値時と、相対経過度が null の項目群の順序に使う。 |
+| `icon` | NULL 許容。`ItemIcon.key` を保存。未知のキーは未選択として読む。CHECK 制約は付けない(候補が増えるため) |
 
 > **設計判断: 日時は UTC で保存する。** 端末のタイムゾーンが変わっても保存値がずれない。
 > 経過日数の算出だけがローカル時刻に依存するので、変換は表示側の 1 箇所に閉じる。
@@ -77,6 +79,7 @@ class Item {
 ### ER図
 
 MVP は `items` 単一テーブル。`done_logs` は v2 のマイグレーションで追加した(#20)。
+`icon` 列は v3 で追加した(#32)。
 
 ```mermaid
 erDiagram
@@ -87,6 +90,7 @@ erDiagram
         integer created_at "UTC epoch ms"
         integer updated_at "UTC epoch ms"
         integer sort_order
+        text icon "nullable, ItemIcon.key"
     }
     DONE_LOGS {
         text id PK
@@ -113,9 +117,10 @@ abstract interface class ItemRepository {
   Stream<List<Item>> watchAll();
 
   /// 項目を追加する。id は UUID v4 でこの層が採番する
-  Future<Item> add(String name, {required DateTime now});
+  Future<Item> add(String name, {ItemIcon? icon, required DateTime now});
 
-  Future<void> rename(ItemId id, String name, {required DateTime now});
+  /// 項目名とアイコンを変更する
+  Future<void> edit(ItemId id, {required String name, required ItemIcon? icon, required DateTime now});
   Future<void> delete(ItemId id);
 
   /// 最終実施日時を記録する。`updatedAt` も `doneAt` と同じ値になる。
@@ -160,8 +165,8 @@ abstract interface class ItemRepository {
 
 ```dart
 class ItemListNotifier extends AsyncNotifier<List<ItemView>> {
-  Future<void> addItem(String rawName);
-  Future<void> renameItem(ItemId id, String rawName);
+  Future<void> addItem(String rawName, {ItemIcon? icon});
+  Future<void> editItem(ItemId id, String rawName, {required ItemIcon? icon});
   Future<void> deleteItem(ItemId id);
   Future<void> markDone(ItemId id);
   Future<void> undoMarkDone(ItemId id);
@@ -396,12 +401,13 @@ stateDiagram-v2
 
 | 項目 | 説明 | フォーマット | 視覚的優先度 |
 |------|------|-------------|------|
+| アイコン | 項目のアイコン(未選択は既定) | Material Symbols 24dp。経年ステージで掠れる | 装飾(読み上げない) |
 | 経過日数 | 最終実施日からの暦日差 | `42日前` / `今日` / `昨日` / `未実施` | **最大・最も太い** |
 | 項目名 | ユーザーが付けた名前 | プレーンテキスト、1 行で省略 | 中 |
 | 最終実施日 | 実際の日付 | `2026年9月12日` | 最小・低コントラスト |
 | やったボタン | 記録操作 | アイコン + ラベル、56dp 以上 | 操作対象として明確 |
 
-配置は、左に「項目名 + 最終実施日」、中央から右に「経過日数」、右端に「やったボタン」。
+配置は、左に「アイコン + 項目名 + 最終実施日」、中央から右に「経過日数」、右端に「やったボタン」。
 **やったボタンは親指の可動域に入る右側**に置く(片手操作要件)。
 
 ### 詳細シート(F29)
@@ -423,6 +429,7 @@ stateDiagram-v2
 - **3 行を超える情報を出さない**。履歴一覧・統計・基準間隔は出さない。
 - **削除の入口を置かない**。削除は編集画面の中だけ(F7)。
 - **開くときに取り消し導線を閉じる**。
+- 見出しの左に項目アイコンを出す(読み上げない)。
 
 ### 一覧の並び順(F30)
 
@@ -474,7 +481,7 @@ stateDiagram-v2
 
 色だけに頼らず、シミ・縁の焼け・端の傷み・欠けの形状を段階的に足す。
 読み上げには「状態は少し経過」などのステージ名を含める(真新しいは付加しない)。
-アイコンの掠れは項目アイコン(#32)の導入時に掛ける。
+項目アイコンはステージが進むほど薄くなる(不透明度 1.0 → 0.6。`agingIconOpacity`)。紙に対して 3:1 以上を保つ。
 
 ## ファイル構造(データ保存形式)
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/aging_stage.dart';
 import '../../domain/elapsed_days.dart';
 import '../../state/item_view.dart';
+import '../item_icon_glyph.dart';
 import 'item_card.dart';
 
 /// 最終実施からの経過日数。未実施は日数と区別する。
@@ -56,14 +57,29 @@ class ItemDetailSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                item.name,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
+            Row(
+              children: [
+                // 装飾。見出しの読み上げは項目名だけにする。
+                ExcludeSemantics(
+                  child: Icon(
+                    itemIconData(item.icon),
+                    size: 32,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      item.name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             for (final (index, line) in lines.indexed) ...[

@@ -264,7 +264,7 @@ UI が描画に必要とするものだけを持つ型。`Item`(ドメインモ�
 
 ### items テーブル
 
-MVP で唯一のテーブル。
+MVP から存在するテーブル。
 
 | 列 | 型 | 意味 |
 | --- | --- | --- |
@@ -274,6 +274,7 @@ MVP で唯一のテーブル。
 | `created_at` | INTEGER NOT NULL | 登録日時 |
 | `updated_at` | INTEGER NOT NULL | 最終更新日時 |
 | `sort_order` | INTEGER NOT NULL | 表示順 |
+| `icon` | TEXT NULL | アイコンの保存キー(`ItemIcon.key`)。**NULL = 未選択**(既定アイコンで表示)。v3 で追加(#32) |
 
 ### done_logs テーブル
 

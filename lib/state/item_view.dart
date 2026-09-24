@@ -7,6 +7,7 @@ import '../domain/aging_stage.dart';
 import '../domain/baseline_interval.dart' as baseline;
 import '../domain/elapsed_days.dart';
 import '../domain/item.dart';
+import '../domain/item_icon.dart';
 
 /// 最終実施日の表示フォーマット(`2026年9月12日`)。
 ///
@@ -30,6 +31,7 @@ final class ItemView {
     this.baselineIntervalDays,
     this.relativeElapsed,
     this.agingStage = AgingStage.fresh,
+    this.icon,
   });
 
   /// ドメインの [Item] を [now] 時点の表示モデルへ変換する。
@@ -54,6 +56,7 @@ final class ItemView {
       baselineIntervalDays: baselineDays,
       relativeElapsed: relative,
       agingStage: agingStageOf(relative),
+      icon: item.icon,
     );
   }
 
@@ -81,6 +84,9 @@ final class ItemView {
   /// 経年ステージ。相対経過度から変換時に 1 回だけ算出する(ビルドのたびに再計算しない)。
   final AgingStage agingStage;
 
+  /// 項目のアイコン。null は未選択(UI が既定アイコンを描く)。
+  final ItemIcon? icon;
+
   @override
   bool operator ==(Object other) =>
       other is ItemView &&
@@ -91,7 +97,8 @@ final class ItemView {
       other.previousIntervalDays == previousIntervalDays &&
       other.baselineIntervalDays == baselineIntervalDays &&
       other.relativeElapsed == relativeElapsed &&
-      other.agingStage == agingStage;
+      other.agingStage == agingStage &&
+      other.icon == icon;
 
   @override
   int get hashCode => Object.hash(
@@ -103,6 +110,7 @@ final class ItemView {
     baselineIntervalDays,
     relativeElapsed,
     agingStage,
+    icon,
   );
 }
 

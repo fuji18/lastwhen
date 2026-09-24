@@ -1,3 +1,5 @@
+import 'item_icon.dart';
+
 /// 項目 ID。素の String と取り違えないための型。
 ///
 /// `rename(name, id)` のような引数の取り違えがコンパイルエラーになる。
@@ -13,6 +15,7 @@ final class Item {
     required this.updatedAt,
     required this.sortOrder,
     this.recentDoneAts = const <DateTime>[],
+    this.icon,
   });
 
   final ItemId id;
@@ -36,6 +39,9 @@ final class Item {
   /// 未実施なら空。先頭は [lastDoneAt] と一致する。
   final List<DateTime> recentDoneAts;
 
+  /// 項目のアイコン。**null は未選択**(UI が既定アイコンを描く)。
+  final ItemIcon? icon;
+
   @override
   bool operator ==(Object other) =>
       other is Item &&
@@ -45,7 +51,8 @@ final class Item {
       other.createdAt == createdAt &&
       other.updatedAt == updatedAt &&
       other.sortOrder == sortOrder &&
-      _listEquals(other.recentDoneAts, recentDoneAts);
+      _listEquals(other.recentDoneAts, recentDoneAts) &&
+      other.icon == icon;
 
   @override
   int get hashCode => Object.hash(
@@ -56,6 +63,7 @@ final class Item {
     updatedAt,
     sortOrder,
     Object.hashAll(recentDoneAts),
+    icon,
   );
 }
 
