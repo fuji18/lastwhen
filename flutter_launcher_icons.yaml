@@ -1,6 +1,9 @@
 # ランチャーアイコンの生成設定(#35)。変更したら次を実行して生成物ごとコミットする:
 #   dart run flutter_launcher_icons
 # 入力画像の置き場は assets/branding/(アプリにはバンドルしない)。
+# 注意: 0.14 系は iOS の生成時に project.pbxproj の
+#   ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS を YES から AppIcon に書き換える(ツールの不具合)。
+#   生成後に git checkout -- ios/Runner.xcodeproj/project.pbxproj で戻すこと。
 flutter_launcher_icons:
   image_path: "assets/branding/app_icon.png"
   android: true

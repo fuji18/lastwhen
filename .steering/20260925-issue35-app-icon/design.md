@@ -156,5 +156,5 @@ flutter_native_splash:
 - `assets/branding/*`(司令塔が用意済み)/ `docs/ideas/lastwhen_icon.png`(ユーザーが差し替え済み)
 - `android/app/src/main/res/**` / `android/app/src/main/AndroidManifest.xml`
 - `ios/Runner/Assets.xcassets/**` / `ios/Runner/Base.lproj/LaunchScreen.storyboard` / `ios/Runner/Info.plist`
-- `ios/Runner.xcodeproj/project.pbxproj` の `ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES` → `AppIcon`(Debug / Release)。**追記(司令塔・実装中の判断待ちへの回答)**: `flutter_launcher_icons` 0.14 系が iOS 生成時に必ず行う書き換え。戻しても次回の再生成で再び入るため、生成物として受け入れる
+- ~~`ios/Runner.xcodeproj/project.pbxproj`~~ **範囲外。生成で変わったら元に戻す。** `flutter_launcher_icons` 0.14 系は iOS の生成時に `ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS`(YES/NO の設定)を Debug / Release だけ `AppIcon` に書き換える。これはツールの不具合で、Xcode は `YES` 以外をオフと読むため、Profile(`YES` のまま)と挙動が食い違う。**再生成のたびに `YES` へ戻す**(`git checkout -- ios/Runner.xcodeproj/project.pbxproj`)。追記(司令塔): 実装中の判断待ちに対し、いったん「生成物として受け入れる」と答えたが、/code-review の指摘で誤りと判明したため改めた
 - `docs/architecture.md` / `docs/repository-structure.md` / `.steering/20260925-issue35-app-icon/*`

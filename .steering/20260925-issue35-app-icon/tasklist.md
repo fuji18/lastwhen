@@ -23,7 +23,7 @@
 
 ## 申し送り
 
-- 判断待ち 1 回: `flutter_launcher_icons` による `project.pbxproj` の書き換えが判断7 の範囲外だった。生成物として受け入れ、design.md 判断7 に追記した
+- 判断待ち 1 回: `flutter_launcher_icons` による `project.pbxproj` の書き換えが判断7 の範囲外だった。いったん受け入れたが、/code-review の指摘でツールの不具合(YES/NO の設定に `AppIcon` を書き込み、Profile と挙動が食い違う)と判明したため `YES` に戻し、design.md 判断7 を改めた
 - レビュー(code-reviewer)の Minor 3 件はいずれも修正不要(版の下限と lock の乖離 / `cli_util` の降格 = `build_runner` を再実行して差分なし / iOS の旧世代アイコンサイズ = ツール既定)
 - **iOS は未検証。** macOS で実機・シミュレータのアイコンとスプラッシュを確認する
-- 生成ツールで生成物を作り直すときは、判断7 の範囲(`project.pbxproj` の 1 設定を含む)が再び出るのが正常
+- 生成ツールで生成物を作り直すときは、`project.pbxproj` が再び書き換わる。**`git checkout -- ios/Runner.xcodeproj/project.pbxproj` で戻す**(判断7)
