@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/category.dart';
 import '../../domain/item.dart';
 import '../../domain/item_icon.dart';
 import '../../domain/item_name.dart';
+import '../../state/category_filter.dart';
+import '../../state/category_list_notifier.dart';
 import '../../state/edit_item_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
+import '../widgets/item_category_picker.dart';
 import '../widgets/item_icon_picker.dart';
 
-/// 項目の編集画面。**変更できるのは項目名とアイコン(F6 / F14)**。
+/// 項目の編集画面。**変更できるのは項目名・アイコン・カテゴリ(F6 / F14 / F13)**。
 ///
 /// 最終実施日の手動修正は P1(F16)。ここに足さない。
 /// **削除の唯一の入口**でもある(F7。一覧にスワイプ削除を置かない)。
 class ItemEditScreen extends ConsumerStatefulWidget {
   /// [itemId] の項目を編集する画面を作る。[initialName] は入力欄の初期値。
-  /// [initialIcon] は開いた時点のアイコン(保存済みの値)。
+  /// [initialIcon] は開いた時点のアイコン(保存済みの値)。[initialCategoryId] は
+  /// 開いた時点のカテゴリ(保存済みの値)。
   const ItemEditScreen({
     required this.itemId,
     required this.initialName,
     this.initialIcon,
+    this.initialCategoryId,
     super.key,
   });
 
@@ -31,6 +37,9 @@ class ItemEditScreen extends ConsumerStatefulWidget {
 
   /// 開いた時点のアイコン(保存済みの値)。
   final ItemIcon? initialIcon;
+
+  /// 開いた時点のカテゴリ(保存済みの値)。
+  final CategoryId? initialCategoryId;
 
   @override
   ConsumerState<ItemEditScreen> createState() => _ItemEditScreenState();
@@ -49,6 +58,9 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
 
   /// 選択中のアイコン。null は未選択(既定アイコンになる)。
   late ItemIcon? _icon = widget.initialIcon;
+
+  /// 選択中のカテゴリ。null は未分類。
+  late CategoryId? _categoryId = widget.initialCategoryId;
 
   @override
   void dispose() {
@@ -98,6 +110,12 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
                 enabled: !_isBusy,
               ),
               const SizedBox(height: 24),
+              ItemCategoryPicker(
+                selected: _categoryId,
+                onChanged: (value) => setState(() => _categoryId = value),
+                enabled: !_isBusy,
+              ),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _isBusy ? null : _save,
                 child: const Text('保存'),
@@ -134,9 +152,19 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
       _isBusy = true;
       _errorText = null;
     });
+    // 一覧がまだ無いときは存在を判定できない。選択を消さずにそのまま渡す。
+    final categories = ref.read(categoryListProvider).value;
     final result = await ref
         .read(itemListProvider.notifier)
-        .editItem(widget.itemId, _controller.text, icon: _icon);
+        .editItem(
+          widget.itemId,
+          _controller.text,
+          icon: _icon,
+          // 編集中にカテゴリが削除された場合に外部キー違反を起こさない。
+          categoryId: categories == null
+              ? _categoryId
+              : resolveCategoryId(_categoryId, categories),
+        );
     if (!mounted) {
       return;
     }

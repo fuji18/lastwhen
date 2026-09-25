@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/category_repository_impl.dart';
 import '../data/database/app_database.dart';
 import '../data/item_repository_impl.dart';
+import '../domain/category_repository.dart';
 import '../domain/clock.dart';
 import '../domain/item_repository.dart';
 
@@ -21,6 +23,11 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 /// 差し替えるだけで、Drift を起動せずにテストできる。
 final itemRepositoryProvider = Provider<ItemRepository>(
   (ref) => ItemRepositoryImpl(ref.watch(appDatabaseProvider)),
+);
+
+/// カテゴリの永続化。上位層のテストは `FakeCategoryRepository` に差し替える。
+final categoryRepositoryProvider = Provider<CategoryRepository>(
+  (ref) => CategoryRepositoryImpl(ref.watch(appDatabaseProvider)),
 );
 
 /// 現在時刻の供給元。テストは `FakeClock` に差し替える。

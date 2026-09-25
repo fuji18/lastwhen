@@ -2,23 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
+import 'package:lastwhen/domain/category.dart';
+import 'package:lastwhen/domain/category_repository.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
+import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
-Widget _app(FakeItemRepository repository, Clock clock) => ProviderScope(
+Widget _app(
+  FakeItemRepository repository,
+  Clock clock, {
+  CategoryRepository? categoryRepository,
+}) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
+    categoryRepositoryProvider.overrideWithValue(
+      categoryRepository ?? FakeCategoryRepository(),
+    ),
     clockProvider.overrideWithValue(clock),
   ],
   child: const App(),
 );
+
+/// 一覧が**一度も届かないまま**失敗するカテゴリリポジトリ(追補1 の検証用)。
+/// `watchAll` 以外は呼ばれない前提で `UnimplementedError` にしておく。
+final class _FailingWatchCategoryRepository implements CategoryRepository {
+  @override
+  Stream<List<Category>> watchAll() =>
+      Stream<List<Category>>.error(StateError('watch failed'));
+
+  @override
+  Future<Category> add(String name) => throw UnimplementedError();
+
+  @override
+  Future<void> rename(CategoryId id, String name) => throw UnimplementedError();
+
+  @override
+  Future<void> delete(CategoryId id) => throw UnimplementedError();
+}
 
 void main() {
   final now = DateTime.utc(2026, 9, 16, 3);
@@ -246,6 +274,84 @@ void main() {
   testWidgets('アイコンピッカーが表示される', (tester) async {
     await openEditScreen(tester, '美容院');
     expect(find.byType(ItemIconPicker), findsOneWidget);
+  });
+
+  testWidgets('カテゴリピッカーが表示される', (tester) async {
+    await openEditScreen(tester, '美容院');
+    expect(find.byType(ItemCategoryPicker), findsOneWidget);
+  });
+
+  testWidgets('現在のカテゴリで開き、変更して保存すると反映される', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    final health = await categoryRepository.add('健康');
+    await categoryRepository.add('趣味');
+    final item = await repository.add('美容院', categoryId: health.id, now: now);
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    final beforeChip = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, '健康'),
+    );
+    expect(beforeChip.selected, isTrue);
+
+    await tester.tap(find.text('趣味'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, isNotNull);
+    expect(updated.categoryId, isNot(health.id));
+  });
+
+  testWidgets('未分類に戻して保存すると categoryId が null になる', (tester) async {
+    final categoryRepository = FakeCategoryRepository(items: repository);
+    addTearDown(categoryRepository.dispose);
+    final health = await categoryRepository.add('健康');
+    final item = await repository.add('美容院', categoryId: health.id, now: now);
+    await tester.pumpWidget(
+      _app(repository, FakeClock(now), categoryRepository: categoryRepository),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(uncategorizedLabel));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, isNull);
+  });
+
+  testWidgets('カテゴリ一覧が読めない状態で名前だけ変えても、元のカテゴリ ID のまま保存される', (tester) async {
+    const categoryId = CategoryId('cat-1');
+    final item = await repository.add('美容院', categoryId: categoryId, now: now);
+    await tester.pumpWidget(
+      _app(
+        repository,
+        FakeClock(now),
+        categoryRepository: _FailingWatchCategoryRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('編集'));
+    await tester.pumpAndSettle();
+    await saveName(tester, 'シャンプー');
+    final updated = (await repository.watchAll().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+    expect(updated.categoryId, categoryId);
   });
 
   testWidgets('削除失敗なら対象を残して編集画面にエラーを表示する', (tester) async {

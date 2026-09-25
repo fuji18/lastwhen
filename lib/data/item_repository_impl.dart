@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../domain/baseline_interval.dart' show recentDoneAtsLimit;
+import '../domain/category.dart';
 import '../domain/item.dart';
 import '../domain/item_icon.dart';
 import '../domain/item_repository.dart';
@@ -71,7 +72,12 @@ ORDER BY item_id, done_at DESC, rn
   }
 
   @override
-  Future<Item> add(String name, {ItemIcon? icon, required DateTime now}) {
+  Future<Item> add(
+    String name, {
+    ItemIcon? icon,
+    CategoryId? categoryId,
+    required DateTime now,
+  }) {
     final timestamp = _toEpochMillis(now);
     // 採番と INSERT を同じトランザクションに入れる。分けると同時追加で
     // sort_order が衝突する。
@@ -90,6 +96,7 @@ ORDER BY item_id, done_at DESC, rn
         updatedAt: timestamp,
         sortOrder: currentMax == null ? 0 : currentMax + 1,
         icon: icon?.key,
+        categoryId: categoryId?.value,
       );
       await _db.into(_db.items).insert(row);
       return _toDomain(row, const <DateTime>[]);
@@ -101,6 +108,7 @@ ORDER BY item_id, done_at DESC, rn
     ItemId id, {
     required String name,
     required ItemIcon? icon,
+    required CategoryId? categoryId,
     required DateTime now,
   }) async {
     // last_done_at を companion に載せない = 変更しない。
@@ -108,6 +116,7 @@ ORDER BY item_id, done_at DESC, rn
       ItemsCompanion(
         name: Value(name),
         icon: Value(icon?.key),
+        categoryId: Value(categoryId?.value),
         updatedAt: Value(_toEpochMillis(now)),
       ),
     );
@@ -193,6 +202,7 @@ DateTime _toUtc(int millis) =>
 /// Drift の行をドメインモデルへ変換する。[recentDoneAts] は新しい順・UTC。
 Item _toDomain(ItemRow row, List<DateTime> recentDoneAts) {
   final lastDoneAt = row.lastDoneAt;
+  final categoryId = row.categoryId;
   return Item(
     id: ItemId(row.id),
     name: row.name,
@@ -202,5 +212,6 @@ Item _toDomain(ItemRow row, List<DateTime> recentDoneAts) {
     sortOrder: row.sortOrder,
     recentDoneAts: recentDoneAts,
     icon: ItemIcon.fromKey(row.icon),
+    categoryId: categoryId == null ? null : CategoryId(categoryId),
   );
 }

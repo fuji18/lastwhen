@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lastwhen/data/category_repository_impl.dart';
 import 'package:lastwhen/data/database/app_database.dart';
 import 'package:lastwhen/data/item_repository_impl.dart';
 import 'package:lastwhen/domain/baseline_interval.dart' show recentDoneAtsLimit;
@@ -90,8 +91,28 @@ void main() {
       await expectation;
     });
 
-    test('schemaVersion は 3', () {
-      expect(db.schemaVersion, 3);
+    test('schemaVersion は 4', () {
+      expect(db.schemaVersion, 4);
+    });
+
+    test('カテゴリつきで追加すると保存され、編集で null に戻せる', () async {
+      final categoryRepository = CategoryRepositoryImpl(db);
+      final category = (await categoryRepository.watchAll().first).first;
+
+      final item = await repository.add('項目', categoryId: category.id, now: t0);
+      expect(
+        (await repository.watchAll().first).single.categoryId,
+        category.id,
+      );
+
+      await repository.edit(
+        item.id,
+        name: '項目',
+        icon: null,
+        categoryId: null,
+        now: t1,
+      );
+      expect((await repository.watchAll().first).single.categoryId, isNull);
     });
 
     test('未知のアイコンキーを直接書き込むと未選択(null)で読める', () async {
@@ -252,7 +273,13 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
     test('名称変更では名前だけが変わる', () async {
       final item = await repository.add('項目', now: t0);
       await repository.markDone(item.id, t1);
-      await repository.edit(item.id, name: '新しい名前', icon: null, now: t2);
+      await repository.edit(
+        item.id,
+        name: '新しい名前',
+        icon: null,
+        categoryId: null,
+        now: t2,
+      );
 
       final items = await repository.watchAll().first;
       final updated = items.single;
@@ -283,7 +310,13 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
     test('編集でアイコンだけ変えても最終実施日と直近の履歴は変わらない', () async {
       final item = await repository.add('項目', now: t0);
       await repository.markDone(item.id, t1);
-      await repository.edit(item.id, name: '項目', icon: ItemIcon.bath, now: t2);
+      await repository.edit(
+        item.id,
+        name: '項目',
+        icon: ItemIcon.bath,
+        categoryId: null,
+        now: t2,
+      );
 
       final items = await repository.watchAll().first;
       final updated = items.single;
@@ -295,7 +328,13 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
 
     test('編集で icon: null にすると未選択に戻る', () async {
       final item = await repository.add('項目', icon: ItemIcon.bath, now: t0);
-      await repository.edit(item.id, name: '項目', icon: null, now: t1);
+      await repository.edit(
+        item.id,
+        name: '項目',
+        icon: null,
+        categoryId: null,
+        now: t1,
+      );
 
       final items = await repository.watchAll().first;
 
@@ -332,7 +371,13 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
     test('存在しない項目への操作は例外にならない', () async {
       const missing = ItemId('missing');
 
-      await repository.edit(missing, name: '新しい名前', icon: null, now: t0);
+      await repository.edit(
+        missing,
+        name: '新しい名前',
+        icon: null,
+        categoryId: null,
+        now: t0,
+      );
       await repository.markDone(missing, t0);
       await repository.restoreLastDoneAt(missing, null, now: t0);
       await repository.delete(missing);

@@ -54,6 +54,7 @@ class Item {
   final DateTime updatedAt;
   final int sortOrder;        // 登録順。F30 の並びのタイブレークに使う
   final ItemIcon? icon;       // null = 未選択(F14)
+  final CategoryId? categoryId;   // null = 未分類(F13)
 }
 ```
 
@@ -67,6 +68,7 @@ class Item {
 | `createdAt` / `updatedAt` | NOT NULL。UTC で保存し、表示時に端末のローカル時刻へ変換する。`updatedAt` は**書き込みが起きた時刻**を表すので、「やった」の取り消しでも前進させる(巻き戻さない) |
 | `sortOrder` | NOT NULL。既定は `MAX(sort_order) + 1`。**MVP では常に登録順と一致する**(並び替えが無いため)。採番のために INSERT ごとに 1 本クエリが増えるが、P1 の F15(並び替え)で初めて意味を持つ列なので、そのコストは許容する。 F30 では相対経過度の同値時と、相対経過度が null の項目群の順序に使う。 |
 | `icon` | NULL 許容。`ItemIcon.key` を保存。未知のキーは未選択として読む。CHECK 制約は付けない(候補が増えるため) |
+| `categoryId` | NULL 許容(FK → categories.id)。**NULL = 未分類**。カテゴリの削除で NULL に戻る(ON DELETE SET NULL)。v4 で追加(#33) |
 
 > **設計判断: 日時は UTC で保存する。** 端末のタイムゾーンが変わっても保存値がずれない。
 > 経過日数の算出だけがローカル時刻に依存するので、変換は表示側の 1 箇所に閉じる。
@@ -76,10 +78,25 @@ class Item {
 > 「最新ログのキャッシュ」という位置づけに変わる。列を消す必要がないため、
 > このスキーマは P1 への移行を妨げない。
 
+### エンティティ: Category(カテゴリ)
+
+```dart
+/// 項目を分けるためのカテゴリ(F13)。ユーザーが追加・名前変更・削除できる。
+class Category {
+  final CategoryId id;
+  final String name;      // トリム後 1〜10 文字。重複不可(ドメイン層で検証)
+  final int sortOrder;    // 追加順。MAX(sort_order) + 1
+}
+```
+
+- 項目あたり 0 か 1 つ(多対多にしない)
+- 時刻の列を持たない(表示・並びに使わないため)
+- 削除しても項目・記録は消えない。**そのカテゴリの項目は未分類(NULL)になる**(ON DELETE SET NULL)
+
 ### ER図
 
-MVP は `items` 単一テーブル。`done_logs` は v2 のマイグレーションで追加した(#20)。
-`icon` 列は v3 で追加した(#32)。
+`categories` と `category_id` は v4 で追加した(#33)。`done_logs` は v2 のマイグレーションで
+追加した(#20)。`icon` 列は v3 で追加した(#32)。
 
 ```mermaid
 erDiagram
@@ -91,13 +108,20 @@ erDiagram
         integer updated_at "UTC epoch ms"
         integer sort_order
         text icon "nullable, ItemIcon.key"
+        text category_id "nullable, FK -> categories.id"
     }
     DONE_LOGS {
         text id PK
         text item_id FK
         integer done_at
     }
+    CATEGORIES {
+        text id PK
+        text name
+        integer sort_order
+    }
     ITEMS ||--o{ DONE_LOGS : "v2 で追加"
+    CATEGORIES ||--o{ ITEMS : "v4 で追加。削除で NULL"
 ```
 
 ## コンポーネント設計
@@ -117,10 +141,10 @@ abstract interface class ItemRepository {
   Stream<List<Item>> watchAll();
 
   /// 項目を追加する。id は UUID v4 でこの層が採番する
-  Future<Item> add(String name, {ItemIcon? icon, required DateTime now});
+  Future<Item> add(String name, {ItemIcon? icon, CategoryId? categoryId, required DateTime now});
 
-  /// 項目名とアイコンを変更する
-  Future<void> edit(ItemId id, {required String name, required ItemIcon? icon, required DateTime now});
+  /// 項目名・アイコン・カテゴリを変更する
+  Future<void> edit(ItemId id, {required String name, required ItemIcon? icon, required CategoryId? categoryId, required DateTime now});
   Future<void> delete(ItemId id);
 
   /// 最終実施日時を記録する。`updatedAt` も `doneAt` と同じ値になる。
@@ -149,6 +173,12 @@ abstract interface class ItemRepository {
 > **`watchAll` を Stream にする理由**: 記録・編集・削除のたびに UI が自力で再取得する設計だと、
 > 更新漏れの経路が機能の数だけ増える。Drift の `watch()` は DB 変更を購読できるので、
 > 書き込み側は UI を意識しない。
+
+### CategoryRepository(リポジトリ層・F13)
+
+`ItemRepository` と同じ形の小さなインターフェース(`watchAll` / `add` / `rename` / `delete`)。
+**書き込みは `now` を取らない**(カテゴリは時刻の列を持たない)。`delete` は対象カテゴリの
+項目を未分類(`categoryId: null`)に戻す更新と、カテゴリ行の削除を 1 トランザクションで行う。
 
 ### ItemListNotifier(状態管理層)
 
@@ -387,6 +417,8 @@ stateDiagram-v2
     編集 --> 削除確認: 削除ボタン
     削除確認 --> 一覧: 削除実行
     削除確認 --> 編集: キャンセル
+    一覧 --> カテゴリ管理: AppBar のボタン(F13)
+    カテゴリ管理 --> 一覧: 戻る
 ```
 
 **通常操作の画面は 3 つだけ**(一覧・登録・編集)と、一覧に重ねる詳細シート(F29)。記録は遷移を伴わない —— これが「1 タップ」の実体。
@@ -443,6 +475,18 @@ stateDiagram-v2
   指しているか分からなくなり、隣のカードを続けて押す動線も壊れるため
 - 並び替えは SQL ではなく `ItemListNotifier` のメモリ上で行う(相対経過度が `Clock` に依存するため)
 - null を上に置かない。基準間隔が分からない項目を上げるのは、アプリが勝手に期限を決めることに近い
+
+### カテゴリの絞り込み(F13)
+
+一覧上部にカテゴリのチップ列(先頭は「すべて」)を置き、選んだカテゴリの項目だけを表示する。
+
+- **絞り込みは表示の上での部分列。** F30 の並び(相対経過度の降順)は絞り込み後も保つ
+- カテゴリが 0 件ならチップ列そのものを出さない
+- 絞り込みの結果が 0 件になったら「このカテゴリの項目はありません」と出す(空状態とは別の文言)
+- **選択は保存しない。** 再起動すると「すべて」に戻る
+- 選択中のカテゴリが削除されたら「すべて」に戻る
+- 絞り込み中に項目を追加すると、選択中のカテゴリが既定で選ばれた状態で登録画面が開く
+- カテゴリの追加・名前変更・削除は一覧の AppBar から開くカテゴリ管理画面で行う
 
 ### 状態ごとの表示
 

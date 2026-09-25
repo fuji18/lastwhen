@@ -10,6 +10,7 @@ import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
+import 'generated/schema_v4.dart' as v4;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -187,6 +188,87 @@ void main() {
           expectedNewDoneLogsData,
           await newDb.select(newDb.doneLogs).get(),
         );
+      },
+    );
+  });
+
+  // v3 → v4 は「categories テーブルの新規作成 + items.category_id 列の追加 + 初期カテゴリの
+  // 投入」を伴うため、items・done_logs が不変であることと categories の初期値を検証する
+  // (design.md 判断3 手順5)。
+  test('v3 から v4 への移行で items・done_logs は不変、categories は初期4件が入る', () async {
+    final oldItemsData = <v3.ItemsData>[
+      const v3.ItemsData(
+        id: 'item-done-1',
+        name: '記録済み1',
+        lastDoneAt: 1000,
+        createdAt: 100,
+        updatedAt: 1000,
+        sortOrder: 0,
+        icon: 'bath',
+      ),
+      const v3.ItemsData(
+        id: 'item-never-done',
+        name: '未実施',
+        lastDoneAt: null,
+        createdAt: 300,
+        updatedAt: 300,
+        sortOrder: 1,
+        icon: null,
+      ),
+    ];
+    final expectedNewItemsData = <v4.ItemsData>[
+      const v4.ItemsData(
+        id: 'item-done-1',
+        name: '記録済み1',
+        lastDoneAt: 1000,
+        createdAt: 100,
+        updatedAt: 1000,
+        sortOrder: 0,
+        icon: 'bath',
+        categoryId: null,
+      ),
+      const v4.ItemsData(
+        id: 'item-never-done',
+        name: '未実施',
+        lastDoneAt: null,
+        createdAt: 300,
+        updatedAt: 300,
+        sortOrder: 1,
+        icon: null,
+        categoryId: null,
+      ),
+    ];
+    final oldDoneLogsData = <v3.DoneLogsData>[
+      const v3.DoneLogsData(id: 'log-1', itemId: 'item-done-1', doneAt: 1000),
+    ];
+    final expectedNewDoneLogsData = <v4.DoneLogsData>[
+      const v4.DoneLogsData(id: 'log-1', itemId: 'item-done-1', doneAt: 1000),
+    ];
+
+    await verifier.testWithDataIntegrity(
+      oldVersion: 3,
+      newVersion: 4,
+      createOld: v3.DatabaseAtV3.new,
+      createNew: v4.DatabaseAtV4.new,
+      openTestedDatabase: AppDatabase.forTesting,
+      createItems: (batch, oldDb) {
+        batch.insertAll(oldDb.items, oldItemsData);
+        batch.insertAll(oldDb.doneLogs, oldDoneLogsData);
+      },
+      validateItems: (newDb) async {
+        expect(expectedNewItemsData, await newDb.select(newDb.items).get());
+        expect(
+          expectedNewDoneLogsData,
+          await newDb.select(newDb.doneLogs).get(),
+        );
+
+        final categories = await newDb.select(newDb.categories).get();
+        expect(categories.map((c) => (c.name, c.sortOrder)), [
+          ('生活', 0),
+          ('健康', 1),
+          ('趣味', 2),
+          ('その他', 3),
+        ]);
       },
     );
   });

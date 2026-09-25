@@ -17,6 +17,7 @@ import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
@@ -33,6 +34,7 @@ Widget _app(
   child: ProviderScope(
     overrides: [
       itemRepositoryProvider.overrideWithValue(repository),
+      categoryRepositoryProvider.overrideWithValue(FakeCategoryRepository()),
       clockProvider.overrideWithValue(clock),
     ],
     child: const App(),
@@ -202,6 +204,9 @@ void main() {
             child: ProviderScope(
               overrides: [
                 itemRepositoryProvider.overrideWithValue(repository),
+                categoryRepositoryProvider.overrideWithValue(
+                  FakeCategoryRepository(),
+                ),
                 clockProvider.overrideWithValue(FakeClock(now)),
               ],
               child: MaterialApp(
@@ -323,6 +328,9 @@ void main() {
             itemRepositoryProvider.overrideWithValue(
               _NeverEmittingRepository(),
             ),
+            categoryRepositoryProvider.overrideWithValue(
+              FakeCategoryRepository(),
+            ),
             clockProvider.overrideWithValue(FakeClock(now)),
           ],
           child: const App(),
@@ -351,6 +359,9 @@ void main() {
         ProviderScope(
           overrides: [
             itemRepositoryProvider.overrideWithValue(_FailingRepository()),
+            categoryRepositoryProvider.overrideWithValue(
+              FakeCategoryRepository(),
+            ),
             clockProvider.overrideWithValue(FakeClock(now)),
           ],
           child: const App(),

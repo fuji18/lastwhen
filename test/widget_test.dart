@@ -5,6 +5,7 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/state/providers.dart';
 
+import 'support/fake_category_repository.dart';
 import 'support/fake_clock.dart';
 import 'support/fake_item_repository.dart';
 
@@ -16,6 +17,9 @@ void main() {
       ProviderScope(
         overrides: [
           itemRepositoryProvider.overrideWithValue(repository),
+          categoryRepositoryProvider.overrideWithValue(
+            FakeCategoryRepository(),
+          ),
           clockProvider.overrideWithValue(
             FakeClock(DateTime.utc(2026, 9, 16, 3)),
           ),

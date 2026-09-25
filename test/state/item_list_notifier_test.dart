@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
@@ -236,6 +237,16 @@ void main() {
       expect(result, isA<AddItemSucceeded>());
       expect((await repository.watchAll().first).single.icon, ItemIcon.bath);
     });
+
+    test('カテゴリを指定して登録するとそのカテゴリで保存される', () async {
+      const categoryId = CategoryId('category-1');
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .addItem('風呂掃除', categoryId: categoryId);
+      expect(result, isA<AddItemSucceeded>());
+      expect((await repository.watchAll().first).single.categoryId, categoryId);
+    });
   });
   group('記録と取り消し', () {
     Future<ProviderContainer> ready({DateTime? previous, Clock? clock}) async {
@@ -378,7 +389,7 @@ void main() {
 
     Future<EditItemResult> rename(String name) => container
         .read(itemListProvider.notifier)
-        .editItem(item.id, name, icon: null);
+        .editItem(item.id, name, icon: null, categoryId: null);
 
     test('名前を変えても最終実施日と経過日数は動かない', () async {
       expect(await rename('シャンプー'), isA<EditItemSucceeded>());
@@ -446,7 +457,12 @@ void main() {
       expect(
         await container
             .read(itemListProvider.notifier)
-            .editItem(const ItemId('missing'), 'シャンプー', icon: null),
+            .editItem(
+              const ItemId('missing'),
+              'シャンプー',
+              icon: null,
+              categoryId: null,
+            ),
         isA<EditItemIgnored>(),
       );
       expect(await repository.watchAll().first, before);
@@ -473,10 +489,29 @@ void main() {
       expect(
         await container
             .read(itemListProvider.notifier)
-            .editItem(item.id, '美容院', icon: ItemIcon.bath),
+            .editItem(item.id, '美容院', icon: ItemIcon.bath, categoryId: null),
         isA<EditItemSucceeded>(),
       );
       expect((await repository.watchAll().first).single.icon, ItemIcon.bath);
+    });
+
+    test('カテゴリを指定すると保存され、null を渡すと未分類に戻る', () async {
+      const categoryId = CategoryId('category-1');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .editItem(item.id, '美容院', icon: null, categoryId: categoryId),
+        isA<EditItemSucceeded>(),
+      );
+      expect((await repository.watchAll().first).single.categoryId, categoryId);
+
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .editItem(item.id, '美容院', icon: null, categoryId: null),
+        isA<EditItemSucceeded>(),
+      );
+      expect((await repository.watchAll().first).single.categoryId, isNull);
     });
   });
 

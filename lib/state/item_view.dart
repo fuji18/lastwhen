@@ -5,6 +5,7 @@ import '../domain/aging_stage.dart';
 // はこのファイルのフィールド名(`ItemView` 判断7)と同じ名前(design.md の用語に揃えた結果)。
 // 衝突を避けるため常に `baseline.` を付けて呼ぶ。
 import '../domain/baseline_interval.dart' as baseline;
+import '../domain/category.dart';
 import '../domain/elapsed_days.dart';
 import '../domain/item.dart';
 import '../domain/item_icon.dart';
@@ -32,6 +33,7 @@ final class ItemView {
     this.relativeElapsed,
     this.agingStage = AgingStage.fresh,
     this.icon,
+    this.categoryId,
   });
 
   /// ドメインの [Item] を [now] 時点の表示モデルへ変換する。
@@ -57,6 +59,7 @@ final class ItemView {
       relativeElapsed: relative,
       agingStage: agingStageOf(relative),
       icon: item.icon,
+      categoryId: item.categoryId,
     );
   }
 
@@ -87,6 +90,9 @@ final class ItemView {
   /// 項目のアイコン。null は未選択(UI が既定アイコンを描く)。
   final ItemIcon? icon;
 
+  /// 項目のカテゴリ。null は未分類。
+  final CategoryId? categoryId;
+
   @override
   bool operator ==(Object other) =>
       other is ItemView &&
@@ -98,7 +104,8 @@ final class ItemView {
       other.baselineIntervalDays == baselineIntervalDays &&
       other.relativeElapsed == relativeElapsed &&
       other.agingStage == agingStage &&
-      other.icon == icon;
+      other.icon == icon &&
+      other.categoryId == categoryId;
 
   @override
   int get hashCode => Object.hash(
@@ -111,6 +118,7 @@ final class ItemView {
     relativeElapsed,
     agingStage,
     icon,
+    categoryId,
   );
 }
 

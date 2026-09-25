@@ -3,14 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/category.dart';
 import '../../domain/item.dart';
+import '../../state/category_filter.dart';
+import '../../state/category_list_notifier.dart';
 import '../../state/mark_done_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
+import '../widgets/category_filter_bar.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_card.dart';
 import '../widgets/item_detail_sheet.dart';
+import 'category_manage_screen.dart';
 import 'item_add_screen.dart';
 import 'item_edit_screen.dart';
 
@@ -49,14 +54,29 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
       AsyncData(:final value) => value.isNotEmpty,
       _ => false,
     };
+    final categories = ref.watch(categoryListProvider).value ?? const [];
+    final filter = resolveCategoryId(
+      ref.watch(categoryFilterProvider),
+      categories,
+    );
     return Scaffold(
-      appBar: AppBar(title: const Text('LastWhen')),
+      appBar: AppBar(
+        title: const Text('LastWhen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.label_outline),
+            tooltip: 'カテゴリを管理',
+            onPressed: () => _openCategoryManageScreen(context),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: switch (items) {
           AsyncData(:final value) when value.isEmpty => EmptyState(
-            onAddPressed: () => _openAddScreen(context),
+            onAddPressed: () =>
+                _openAddScreen(context, initialCategoryId: filter),
           ),
-          AsyncData(:final value) => _ItemList(items: value),
+          AsyncData(:final value) => _buildList(value, categories, filter),
           AsyncError() => _LoadError(
             onRetry: () => ref.invalidate(itemListProvider),
           ),
@@ -67,24 +87,59 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
       ),
       floatingActionButton: hasItems
           ? FloatingActionButton(
-              onPressed: () => _openAddScreen(context),
+              onPressed: () =>
+                  _openAddScreen(context, initialCategoryId: filter),
               tooltip: '項目を追加',
               child: const Icon(Icons.add),
             )
           : null,
     );
   }
+
+  Widget _buildList(
+    List<ItemView> value,
+    List<Category> categories,
+    CategoryId? filter,
+  ) {
+    final visible = filterByCategory(value, filter);
+    return Column(
+      children: [
+        if (categories.isNotEmpty)
+          CategoryFilterBar(
+            categories: categories,
+            selected: filter,
+            onSelected: (id) =>
+                ref.read(categoryFilterProvider.notifier).select(id),
+          ),
+        Expanded(
+          child: visible.isEmpty
+              ? const _FilteredEmpty()
+              : _ItemList(items: visible),
+        ),
+      ],
+    );
+  }
 }
 
 /// 登録画面へ遷移する。
 ///
-/// 名前付きルートを使わない(design.md 判断4)。画面は一覧・登録・編集の 3 つだけで、
+/// 名前付きルートを使わない(design.md 判断4)。画面は一覧・登録・編集などの画面だけで、
 /// ディープリンクも扱わないため、ルート表を持つと二重管理になるだけ。
-void _openAddScreen(BuildContext context) {
+void _openAddScreen(BuildContext context, {CategoryId? initialCategoryId}) {
   // ScaffoldMessenger は Navigator の上にあり、閉じないと遷移後も導線が残る。
   ScaffoldMessenger.of(context).clearSnackBars();
   Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(builder: (context) => const ItemAddScreen()),
+    MaterialPageRoute<void>(
+      builder: (context) => ItemAddScreen(initialCategoryId: initialCategoryId),
+    ),
+  );
+}
+
+/// カテゴリ管理画面へ遷移する。
+void _openCategoryManageScreen(BuildContext context) {
+  ScaffoldMessenger.of(context).clearSnackBars();
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(builder: (context) => const CategoryManageScreen()),
   );
 }
 
@@ -117,6 +172,7 @@ void _openEditScreen(BuildContext context, ItemView item) {
         itemId: item.id,
         initialName: item.name,
         initialIcon: item.icon,
+        initialCategoryId: item.categoryId,
       ),
     ),
   );
@@ -143,6 +199,23 @@ class _ItemList extends ConsumerWidget {
           onTap: () => unawaited(_openDetailSheet(context, item)),
         );
       },
+    );
+  }
+}
+
+/// 絞り込みの結果、表示する項目が 0 件になったときの表示。
+class _FilteredEmpty extends StatelessWidget {
+  const _FilteredEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CenteredScrollable(
+      child: Text(
+        'このカテゴリの項目はありません',
+        style: theme.textTheme.bodyLarge,
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }

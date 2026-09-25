@@ -11,12 +11,14 @@ import 'package:lastwhen/domain/item_repository.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
+import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
 
 Widget _app(ItemRepository repository, Clock clock) => ProviderScope(
   overrides: [
     itemRepositoryProvider.overrideWithValue(repository),
+    categoryRepositoryProvider.overrideWithValue(FakeCategoryRepository()),
     clockProvider.overrideWithValue(clock),
   ],
   child: const App(),
