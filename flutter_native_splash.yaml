@@ -1,0 +1,16 @@
+# ネイティブのスプラッシュ(起動画面)の生成設定(#35)。変更したら次を実行して生成物ごとコミットする:
+#   dart run flutter_native_splash:create
+# 背景色はロゴ画像の地の色に合わせる(ロゴは地の色込みの画像なので、ずれると四角く浮く)。
+flutter_native_splash:
+  color: "#FEFBF4"
+  image: assets/branding/splash_logo.png
+  android: true
+  ios: true
+  web: false
+
+  # Android 12 以降は中央に円形に切り抜かれたアイコンしか出せないため、
+  # 中央はカメレオン、ロゴは下部のブランディング画像として出す。
+  android_12:
+    color: "#FEFBF4"
+    image: assets/branding/splash_android12.png
+    branding: assets/branding/splash_logo.png
