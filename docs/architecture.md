@@ -37,6 +37,7 @@
 | `dart format` | フォーマット | Dart 公式。設定項目がなく議論が起きない |
 | `flutter test` | ユニット / ウィジェットテスト | 標準。追加依存なし |
 | `build_runner` + `drift_dev` | Drift のコード生成 | スキーマから型安全なクエリを生成する |
+| `flutter_launcher_icons` / `flutter_native_splash` | アイコンとスプラッシュの生成 | 各 OS の多数のサイズ・密度を 1 枚の元画像と設定ファイルから再生成できる。dev 依存でアプリには入らない |
 | `secretlint` | 機密の混入検出 | Dart エコシステムに同等品がない。pre-commit と CI の 2 層で回す |
 | `husky` + `lint-staged` | pre-commit の起動 | 保護ブランチ検査(ベンダー非依存の防衛線)の実体 |
 
@@ -300,6 +301,7 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
 | `intl` | 日付整形 | **バージョンを docs に固定で書かない。** `flutter pub get` の解決に従う(Flutter SDK が `flutter_localizations` 経由で版を pin するため、キャレットで指定すると SDK 更新のたびに衝突する) |
 | `build_runner` | コード生成の実行 | キャレット(dev 依存) |
 | `flutter_lints` | lint ルール | キャレット(dev 依存) |
+| `flutter_launcher_icons` / `flutter_native_splash` | アイコン・スプラッシュの生成 | キャレット(dev 依存)。**生成物はコミットする**(CI で生成しない) |
 
 **`pubspec.lock` は追跡する。** アプリケーション(ライブラリではない)なので、
 ローカル・CI・リリースビルドで同じ依存解決を再現する必要がある。

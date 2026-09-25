@@ -14,6 +14,7 @@ lastwhen/
 ├── test/                     # テスト(lib/ と同じ階層を写す)
 ├── android/                  # Android のプラットフォームコード
 ├── ios/                      # iOS のプラットフォームコード
+├── assets/branding/          # アイコン・スプラッシュ生成の入力画像(アプリにはバンドルしない)
 ├── docs/                     # 永続ドキュメント(北極星ドキュメント群 + UI ガイド)
 │   ├── ideas/                # 下書き・アイデア(自由形式)
 │   └── template-dev/         # ハーネス変更ログのみ(理由は下記「特殊ディレクトリ」)
@@ -183,6 +184,8 @@ docs/
 | --- | --- |
 | `pubspec.yaml` | Dart/Flutter の依存とアセット |
 | `analysis_options.yaml` | lint ルール。`flutter_lints` を継承して追加ルールを書く(**レイヤー間 import の禁止はここでは書けない**。`test/architecture/` で検査する) |
+| `flutter_launcher_icons.yaml` | ランチャーアイコンの生成設定。変更後は `dart run flutter_launcher_icons` を実行し、生成物ごとコミットする |
+| `flutter_native_splash.yaml` | ネイティブのスプラッシュの生成設定。変更後は `dart run flutter_native_splash:create` を実行し、生成物ごとコミットする |
 | `package.json` | **ハーネス専用**。アプリのビルドに関与しない |
 | `.claude/settings.json` | hook と permissions。**Codex への委託禁止領域** |
 | `.claude/branch-policy.json` | ブランチ戦略の単一ソース。**委託禁止領域** |
