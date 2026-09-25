@@ -1,0 +1,17 @@
+# ランチャーアイコンの生成設定(#35)。変更したら次を実行して生成物ごとコミットする:
+#   dart run flutter_launcher_icons
+# 入力画像の置き場は assets/branding/(アプリにはバンドルしない)。
+# 注意: 0.14 系は iOS の生成時に project.pbxproj の
+#   ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS を YES から AppIcon に書き換える(ツールの不具合)。
+#   生成後に git checkout -- ios/Runner.xcodeproj/project.pbxproj で戻すこと。
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon.png"
+  android: true
+  ios: true
+  min_sdk_android: 26
+  remove_alpha_ios: true
+  # アダプティブアイコン: 画像全体を前景にし、背景は画像外周の紙色の無地にする。
+  # 前景の inset 16% で、端末の切り抜き(丸・角丸)でも中央の絵が欠けない。
+  adaptive_icon_foreground: "assets/branding/app_icon.png"
+  adaptive_icon_background: "#E6CBA8"
+  adaptive_icon_foreground_inset: 16

@@ -55,6 +55,10 @@ dev_dependencies:
   build_runner: ^2.16.1
   drift_dev: ^2.35.0
 
+  # ランチャーアイコンとネイティブのスプラッシュの生成(#35 で使う。設定はルートの *.yaml)
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.2.16
+
   flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
