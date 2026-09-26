@@ -21,6 +21,7 @@
 | D | 図鑑は常に経年順。**`itemListProvider` の state は「選んだ並び」、図鑑は新設の `collectionItemsProvider` から「確定済みの経年順」を受ける** | ユーザー判断。一覧側の既存テスト(既定 = 経年順)がそのまま通る形 |
 | E | 並び順の変更は `ItemListNotifier.build` 内の `ref.listen` で受ける。**`ref.watch` しない** | watch すると build し直しで `watchAll()` を購読し直し、読み込み中表示が一瞬出る |
 | F | 並びの確定タイミングは F30 と同じ + **並び順を選び直したとき**。選び直しは「選んだ並び」だけを確定し直し、図鑑用の経年順は保つ | 記録操作では組み替えない規則を全並び順で保つ |
+| H | AppBar のタイトル `LastWhen` を `FittedBox(fit: BoxFit.scaleDown)` で包む(検収で追加) | 並び順ボタンで actions が 2 つになり、文字サイズ 150% 以上でタイトルが約 4dp 足りず省略される(`accessibility_test.dart` の 3 件が失敗)。タイトルはブランド表記で本文ではないため、足りないときだけ縮める。ボタン配置は変えない |
 | G | 同じ並び順を選び直しても何も起きない | `Notifier` は同一値の代入で通知しない(enum は identical)。特別な処理を書かない |
 
 ---
@@ -480,3 +481,33 @@ ItemView _named(String id, {String? name, ElapsedLabel elapsed = const NeverDone
 
 変更したファイルに対して `dart format` / `flutter analyze --fatal-infos` / 関連テストを通す。
 フルスイートは検収側(`/check`)が回す。
+
+---
+
+## 7. 検収での追加(判断H)
+
+### 7-1. `lib/ui/screens/item_list_screen.dart` の AppBar タイトル
+
+`title: const Text('LastWhen'),` を次に置き換える。
+
+```dart
+        // 並び順とカテゴリ管理の 2 ボタンで、文字サイズ 150% 以上だと幅が足りず省略される。
+        // タイトルはブランド表記なので、足りないときだけ縮める(判断H)。
+        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('LastWhen')),
+```
+
+`test/ui/accessibility_test.dart` は変えない(既存の 3 件「文字サイズ 150.0% / 200.0% で一覧の文字が省略されない」
+「文字サイズ 200% で詳細シートが破綻しない」が通ることで確認する)。
+
+### 7-2. `test/ui/item_list_screen_test.dart` の並び順メニューのタップ
+
+「並び順の選択(F15)」グループでメニュー項目を選ぶとき、`find.text(label)` をタップすると
+`A call to tap() ... would not hit test on the specified widget` の警告が出る(code-reviewer の指摘)。
+タップ対象を次の finder に変える。**`warnIfMissed: false` で握り潰さない。**
+
+```dart
+find.widgetWithText(CheckedPopupMenuItem<ItemSortOrder>, label)
+```
+
+これでも警告が残る場合は、推測で別の回避を入れず、警告の全文を添えて止めて報告する。
+期待値(並び順の結果)は変えない。

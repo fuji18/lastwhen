@@ -564,7 +564,9 @@ void main() {
     Future<void> selectOrder(WidgetTester tester, String label) async {
       await tester.tap(find.byTooltip('並び順'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(label));
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<ItemSortOrder>, label),
+      );
       await tester.pumpAndSettle();
     }
 

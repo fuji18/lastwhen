@@ -63,7 +63,9 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LastWhen'),
+        // 並び順とカテゴリ管理の 2 ボタンで、文字サイズ 150% 以上だと幅が足りず省略される。
+        // タイトルはブランド表記なので、足りないときだけ縮める(判断H)。
+        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('LastWhen')),
         actions: [
           // 追加の FAB と同じ条件で出す。空状態・読み込み中・失敗では並べるものが無い。
           if (hasItems)

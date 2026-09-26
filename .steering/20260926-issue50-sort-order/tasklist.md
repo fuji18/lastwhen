@@ -34,4 +34,9 @@
 
 - [x] `dart format --output=none --set-exit-if-changed` が変更した Dart ファイルのみで通る(AGENTS.md に従い全体フォーマットは実施しない)
 - [x] キャッシュ内 Dart SDK の `dart analyze --fatal-infos` が変更した Dart ファイルのみで通る(AGENTS.md に従いラッパーは使用しない)
-- [x] ~~変更に関連するテストが通る~~(理由: AGENTS.md により sandbox でのテスト実行は禁止。ループバックのサーバーソケットを使用できないため、検収側へ実行を委ねる。対象: test/state/item_order_test.dart、test/state/item_list_notifier_test.dart、test/state/collection_test.dart、test/ui/item_list_screen_test.dart、test/ui/collection_screen_test.dart。追加テストの静的解析は pass、実行結果は未確認)
+- [x] ~~変更に関連するテストが通る~~(理由: AGENTS.md により sandbox でのテスト実行は禁止。ループバックのサーバーソケットを使用できないため、検収側へ実行を委ねる。対象: test/state/item_order_test.dart、test/state/item_list_notifier_test.dart、test/state/collection_test.dart、test/ui/item_list_screen_test.dart、test/ui/screens/collection_screen_test.dart。追加テストの静的解析は pass、実行結果は未確認)
+
+## フェーズ4: 検収での追加
+
+- [x] AppBar タイトルを `FittedBox(fit: BoxFit.scaleDown)` で包む(design.md §7-1)。`flutter test test/ui/accessibility_test.dart` が通る
+- [x] 並び順メニューのタップ対象を `CheckedPopupMenuItem` の finder に変え、tap の警告を消す(design.md §7-2)。`flutter test test/ui/item_list_screen_test.dart` が警告なしで通る
