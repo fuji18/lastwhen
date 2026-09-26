@@ -365,6 +365,58 @@ CustomPaint(
 - `lib/state/collection.dart` は `domain/` と `state/` だけに依存する(`flutter/material.dart` を import しない)
 - `ui/` の新規ファイルは `state/` / `domain/` / `ui/` に依存してよい。`data/` を import しない(`test/architecture/layer_dependency_test.dart` が検査する)
 
+## 判断9: 実装中に見つかった副作用への対処(司令塔が追記。fork の「判断待ち」への回答)
+
+`flutter test` で 2 件落ちた。**原因は別々**なので対処も分ける。
+
+### 9-1. `SnackBar` の複製と Hero タグの衝突 → **図鑑だけを専用の `ScaffoldMessenger` で包む**
+
+`IndexedStack` の両画面の `Scaffold` がともにルートとしてアプリの `ScaffoldMessenger` に登録され、
+取り消し導線が図鑑側(オフステージ)にも複製される。同じ内容の `SnackBar` が 2 つ載ると Hero タグが衝突し、
+記録直後の画面遷移で例外になる(実機でも起きる)。
+
+`home_shell.dart` の `IndexedStack` の children を次に変える:
+
+```dart
+children: const [
+  ItemListScreen(),
+  // 図鑑の Scaffold をアプリの ScaffoldMessenger に登録させない。登録されると一覧の取り消し導線が
+  // オフステージの図鑑にも複製され、同じ Hero タグの SnackBar が 2 つ載って遷移時に衝突する(#34 判断9)。
+  ScaffoldMessenger(child: CollectionScreen()),
+],
+```
+
+- **一覧側は包まない。** 取り消し導線はアプリの `ScaffoldMessenger` に出たままにする。`HomeShell._select` の
+  `ScaffoldMessenger.of(context).clearSnackBars()`(`HomeShell` の context はアプリの messenger を指す)が
+  そのまま一覧の導線を閉じられるように、包むのは図鑑だけにする
+- 図鑑は `SnackBar` を出さない(記録の入口が無い)。図鑑から開く詳細シート・編集画面は `Navigator` に積まれるので、
+  編集画面の `SnackBar` はこれまでどおりアプリの messenger に出る
+- `HomeShell` の doc コメントの「`Scaffold` にしない」段落の後に、上のコメントと同じ趣旨を 1 文足す
+- **回帰テストを 1 つ足す**(`test/ui/screens/collection_screen_test.dart`): ホームで「やった」→ 取り消し導線が出た状態で
+  FAB から登録画面へ遷移しても `tester.takeException()` が null、かつ `find.byType(SnackBar)` が `findsNothing`
+
+### 9-2. 長い項目名の省略テストがオフステージの図鑑を数える → **テストの走査からオフステージを除く**
+
+`test/ui/accessibility_test.dart` の `_ellipsizedTexts` はレンダーツリー全体を走査するため、`IndexedStack` の
+非表示側(図鑑の `CollectionCard`)の省略テキストまで拾う。利用者に見えないものを数えているのはテスト側の誤りなので、
+**製品コードではなく走査を直す**:
+
+```dart
+void visit(RenderObject object) {
+  // IndexedStack の非表示側(図鑑タブ)は利用者に見えない。数えない(#34)。
+  if (object is RenderOffstage && object.offstage) {
+    return;
+  }
+  if (object is RenderParagraph && object.didExceedMaxLines) {
+    found.add(object.text.toPlainText());
+  }
+  object.visitChildren(visit);
+}
+```
+
+- 期待値(`[name]`)は変えない
+- `test/ui/terminology_test.dart` の `_renderedTexts` は**変えない**(禁止語は見えない側にも無い方が良く、オフステージを含めて走査するのは害がない)
+
 ## ディレクトリ構造
 
 ```

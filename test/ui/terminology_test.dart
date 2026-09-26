@@ -9,6 +9,7 @@ import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
+import 'package:lastwhen/ui/screens/collection_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
@@ -93,6 +94,7 @@ void main() {
       '編集',
       '削除確認',
       'カテゴリ管理',
+      '図鑑',
     ]) {
       testWidgets('$screen の描画文字列が表記ゆれの禁止一覧に違反しない', (tester) async {
         tester.view.physicalSize = const Size(360 * 3, 640 * 3);
@@ -137,6 +139,10 @@ void main() {
             await tester.tap(find.byTooltip('カテゴリを管理'));
             await tester.pumpAndSettle();
             expect(find.byType(CategoryManageScreen), findsOneWidget);
+          case '図鑑':
+            await tester.tap(find.text('図鑑'));
+            await tester.pumpAndSettle();
+            expect(find.byType(CollectionScreen), findsOneWidget);
         }
         _expectAllowed(_renderedTexts(tester));
         expect(tester.takeException(), isNull);
