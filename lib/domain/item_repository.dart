@@ -45,4 +45,25 @@ abstract interface class ItemRepository {
     DateTime? previous, {
     required DateTime now,
   });
+
+  /// 過去の日付で記録する(F16)。`done_logs` に 1 行追加し、最終実施日時を
+  /// **履歴の最大値**に揃える([doneAt] が最新でなければ最終実施日は動かない)。
+  /// `updatedAt` は [now]。**同一トランザクションで書く。**
+  ///
+  /// 追加した履歴の ID を返す。対象の項目が無ければ何も書かずに null を返す(例外にしない)。
+  Future<DoneLogId?> addDoneLog(
+    ItemId id,
+    DateTime doneAt, {
+    required DateTime now,
+  });
+
+  /// [addDoneLog] の取り消し。[logId] の 1 行だけを消し、最終実施日時を残りの履歴の
+  /// 最大値(無ければ null)に揃える。`updatedAt` は [now]。**同一トランザクションで書く。**
+  ///
+  /// 対象の項目や行が無くても例外にしない。
+  Future<void> removeDoneLog(
+    ItemId id,
+    DoneLogId logId, {
+    required DateTime now,
+  });
 }

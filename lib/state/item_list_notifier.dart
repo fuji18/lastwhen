@@ -1,23 +1,29 @@
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../domain/category.dart';
 import '../domain/item.dart';
 import '../domain/item_icon.dart';
 import '../domain/item_name.dart';
+import '../domain/past_date_record.dart';
 import 'add_item_result.dart';
 import 'edit_item_result.dart';
 import 'item_order.dart';
 import 'item_view.dart';
 import 'mark_done_result.dart';
 import 'providers.dart';
+import 'record_past_date_result.dart';
 
 /// 一覧の状態。UI はこれを `AsyncValue<List<ItemView>>` として受ける。
 final itemListProvider =
     StreamNotifierProvider<ItemListNotifier, List<ItemView>>(
       ItemListNotifier.new,
     );
+
+/// 過去の日付で記録したときの SnackBar 用の日付(`9月14日`)。ロケールは渡さない(`item_view.dart` と同じ理由)。
+final DateFormat _pickedDateFormat = DateFormat('M月d日');
 
 /// 項目一覧を表示モデルへ変換して流す。
 ///
@@ -152,6 +158,73 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     } catch (error, stackTrace) {
       developer.log(
         '「やった」の取り消しに失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const UndoFailed();
+    }
+  }
+
+  /// 日付の選択で選べる最後の日(= 今日のローカル暦日の 0:00、ローカル時刻)。
+  ///
+  /// UI が `DateTime.now()` を呼ばないよう、`Clock` から作って渡す。
+  DateTime todayLocalDate() {
+    final now = ref.read(clockProvider).now().toLocal();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// 過去の日付で記録する(F16)。[pickedDate] は日付の選択が返したローカルの暦日。
+  ///
+  /// 履歴に 1 行**追加**する。最新より古い日なら最終実施日は動かない。
+  /// **確認は挟まない。** 誤りは [undoRecordPastDate] で救う。並びは組み替えない(F30)。
+  Future<RecordPastDateResult> recordPastDate(
+    ItemId id,
+    DateTime pickedDate,
+  ) async {
+    if (!_latestItems.any((item) => item.id == id)) {
+      return const RecordPastDateIgnored();
+    }
+    final now = ref.read(clockProvider).now();
+    if (isFuturePickedDate(pickedDate, now: now)) {
+      return const RecordPastDateRejected();
+    }
+    try {
+      final logId = await ref
+          .read(itemRepositoryProvider)
+          .addDoneLog(id, doneAtOfPickedDate(pickedDate, now: now), now: now);
+      if (logId == null) {
+        return const RecordPastDateIgnored();
+      }
+      return RecordPastDateSucceeded(
+        RecordPastDateUndo(id: id, logId: logId),
+        dateText: _pickedDateFormat.format(pickedDate),
+      );
+    } catch (error, stackTrace) {
+      developer.log(
+        '過去の日付での記録に失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const RecordPastDateFailed();
+    }
+  }
+
+  /// [recordPastDate] を取り消す。追加した 1 行だけを消す。
+  Future<UndoResult> undoRecordPastDate(RecordPastDateUndo undo) async {
+    try {
+      await ref
+          .read(itemRepositoryProvider)
+          .removeDoneLog(
+            undo.id,
+            undo.logId,
+            now: ref.read(clockProvider).now(),
+          );
+      return const UndoSucceeded();
+    } catch (error, stackTrace) {
+      developer.log(
+        '過去の日付での記録の取り消しに失敗しました',
         name: 'lastwhen.state',
         error: error,
         stackTrace: stackTrace,

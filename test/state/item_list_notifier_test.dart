@@ -14,6 +14,7 @@ import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/state/mark_done_result.dart';
+import 'package:lastwhen/state/record_past_date_result.dart';
 
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -375,6 +376,133 @@ void main() {
       expect(clock.calls, greaterThan(before));
     });
   });
+  group('過去の日付で記録', () {
+    final local = now.toLocal();
+    DateTime dateDaysAgo(int days) =>
+        DateTime(local.year, local.month, local.day - days);
+
+    Future<ProviderContainer> ready({DateTime? previous}) async {
+      final item = await repository.add('美容院', now: now);
+      if (previous != null) await repository.markDone(item.id, previous);
+      final container = _container(repository, FakeClock(now));
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      return container;
+    }
+
+    Future<RecordPastDateResult> record(
+      ProviderContainer container,
+      int days,
+    ) => container
+        .read(itemListProvider.notifier)
+        .recordPastDate(
+          container.read(itemListProvider).requireValue.single.id,
+          dateDaysAgo(days),
+        );
+
+    Future<ItemView> current(ProviderContainer container) async {
+      await Future<void>.delayed(Duration.zero);
+      return container.read(itemListProvider).requireValue.single;
+    }
+
+    test('未実施に4日前で記録すると DaysAgo(4) と日付文言を返す', () async {
+      final container = await ready();
+      final result = await record(container, 4) as RecordPastDateSucceeded;
+      final picked = dateDaysAgo(4);
+      expect(result.dateText, '${picked.month}月${picked.day}日');
+      expect((await current(container)).elapsed, const DaysAgo(4));
+    });
+
+    test('今日を選ぶと Today になり現在時刻が保存される', () async {
+      final container = await ready();
+      expect(await record(container, 0), isA<RecordPastDateSucceeded>());
+      expect((await current(container)).elapsed, isA<Today>());
+      expect((await repository.watchAll().first).single.lastDoneAt, now);
+    });
+
+    test('2日前の記録に5日前を追加しても経過日数は動かず前回間隔は3日', () async {
+      final date = dateDaysAgo(2);
+      final container = await ready(
+        previous: DateTime(date.year, date.month, date.day, 12).toUtc(),
+      );
+      expect(await record(container, 5), isA<RecordPastDateSucceeded>());
+      final view = await current(container);
+      expect(view.elapsed, const DaysAgo(2));
+      expect(view.previousIntervalDays, 3);
+    });
+
+    test('未来日は拒否してリポジトリに書かない', () async {
+      final container = await ready();
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('書き込んだら失敗する');
+      expect(await record(container, -1), isA<RecordPastDateRejected>());
+      expect((await current(container)).elapsed, isA<NeverDone>());
+      expect(await repository.watchAll().first, before);
+    });
+
+    test('一覧に無い ID は書き込まず無視する', () async {
+      final container = await ready();
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('書き込んだら失敗する');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .recordPastDate(const ItemId('missing'), dateDaysAgo(4)),
+        isA<RecordPastDateIgnored>(),
+      );
+      expect(await repository.watchAll().first, before);
+    });
+
+    test('記録失敗でも一覧は AsyncData のまま元の値を保持する', () async {
+      final container = await ready();
+      final before = container.read(itemListProvider).requireValue;
+      repository.writeError = StateError('write failed');
+      expect(await record(container, 4), isA<RecordPastDateFailed>());
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncData<List<ItemView>>>(),
+      );
+      expect(container.read(itemListProvider).requireValue, same(before));
+      expect((await repository.watchAll().first).single.lastDoneAt, isNull);
+    });
+
+    test('取り消すと未実施に戻る', () async {
+      final container = await ready();
+      final result = await record(container, 4) as RecordPastDateSucceeded;
+      expect((await current(container)).elapsed, const DaysAgo(4));
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .undoRecordPastDate(result.undo),
+        isA<UndoSucceeded>(),
+      );
+      expect((await current(container)).elapsed, isA<NeverDone>());
+      expect((await repository.watchAll().first).single.recentDoneAts, isEmpty);
+    });
+
+    test('取り消し失敗は UndoFailed で記録が残る', () async {
+      final container = await ready();
+      final result = await record(container, 4) as RecordPastDateSucceeded;
+      await current(container);
+      repository.writeError = StateError('write failed');
+      expect(
+        await container
+            .read(itemListProvider.notifier)
+            .undoRecordPastDate(result.undo),
+        isA<UndoFailed>(),
+      );
+      expect((await current(container)).elapsed, const DaysAgo(4));
+    });
+
+    test('todayLocalDate は Clock のローカル暦日の0時', () async {
+      final container = await ready();
+      final today = container.read(itemListProvider.notifier).todayLocalDate();
+      expect(today, dateDaysAgo(0));
+      expect(today.isUtc, isFalse);
+      expect(today.hour, 0);
+    });
+  });
+
   group('editItem', () {
     late Item item;
     late ProviderContainer container;

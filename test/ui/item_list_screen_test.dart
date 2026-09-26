@@ -266,6 +266,81 @@ void main() {
     expect(rowText('歯ブラシ交換', '今日'), findsOneWidget);
   });
 
+  group('過去の日付で記録', () {
+    Finder pickerText(String text) => find.descendant(
+      of: find.byType(DatePickerDialog),
+      matching: find.text(text),
+    );
+
+    Future<void> openPicker(WidgetTester tester, String name) async {
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('日付を指定して記録'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    }
+
+    Future<void> pickDay(WidgetTester tester, String day) async {
+      await tester.tap(pickerText(day));
+      await tester.pumpAndSettle();
+      await tester.tap(pickerText('記録する'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('詳細シートから日付を指定すると確認なしで記録される', (tester) async {
+      await pumpItems(tester);
+      await openPicker(tester, '歯ブラシ交換');
+      await pickDay(tester, '14');
+      expect(rowText('歯ブラシ交換', '2日前'), findsOneWidget);
+      expect(find.text('9月14日で記録しました'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('日付の選択の最終日は今日', (tester) async {
+      await pumpItems(tester);
+      await openPicker(tester, '歯ブラシ交換');
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.lastDate.year, 2026);
+      expect(picker.lastDate.month, 9);
+      expect(picker.lastDate.day, 16);
+    });
+
+    testWidgets('過去日の記録を取り消すと未実施に戻る', (tester) async {
+      await pumpItems(tester);
+      await openPicker(tester, '歯ブラシ交換');
+      await pickDay(tester, '14');
+      expect(rowText('歯ブラシ交換', '2日前'), findsOneWidget);
+      await tester.tap(find.text('取り消す'));
+      await tester.pumpAndSettle();
+      expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
+    });
+
+    testWidgets('日付の選択をキャンセルすると何も記録されない', (tester) async {
+      await pumpItems(tester);
+      await openPicker(tester, '歯ブラシ交換');
+      await tester.tap(pickerText('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect((await repository.watchAll().first).last.recentDoneAts, isEmpty);
+    });
+
+    testWidgets('最新より古い日を記録しても経過日数は変わらない', (tester) async {
+      await pumpItems(tester);
+      await openPicker(tester, '美容院');
+      await pickDay(tester, '10');
+      expect(rowText('美容院', '4日前'), findsOneWidget);
+      expect(find.text('9月10日で記録しました'), findsOneWidget);
+      expect(
+        (await repository.watchAll().first).first.recentDoneAts,
+        hasLength(2),
+      );
+    });
+  });
+
   testWidgets('カードタップで詳細シートが開き、取り消し導線が閉じる', (tester) async {
     await pumpItems(tester);
     await record(tester, '歯ブラシ交換');
