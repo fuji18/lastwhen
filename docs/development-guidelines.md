@@ -168,12 +168,6 @@ Co-Authored-By: ...
 **PR ボディのテンプレート**は `.github/pull_request_template.md` にある。
 「検証」節には実際に回した検査だけをチェックする。回していないものにチェックを付けない。
 
-> **⚠️ 現在 `quality` ジョブは Flutter 系の検査をスキップしている。** `pubspec.yaml` が
-> 存在しない間だけ有効な暫定ガードで、**ジョブは緑になるが `dart format` /
-> `flutter analyze` / `flutter test` は 1 つも走っていない**(secretlint は Flutter の
-> 有無と無関係に常に走る)。**Flutter プロジェクトの初期化(#2)までは、CI の緑を
-> 品質の根拠にしない。** ガードの削除は #2 の受け入れ条件に含まれている。
-
 ### 記録の義務(CI が検査する)
 
 | 検査 | 落ちる条件 | 逃げ道ラベル |

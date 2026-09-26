@@ -44,11 +44,17 @@ lastwhen/
 
 ```
 domain/
-├── item.dart              # Item エンティティと ItemId
-├── elapsed_days.dart      # 経過日数の算出と ElapsedLabel
-├── clock.dart             # Clock 抽象と SystemClock 実装
-├── item_name.dart         # 項目名のバリデーション(トリム・長さ)
-└── item_repository.dart   # リポジトリのインターフェース(実装は data/ に置く)
+├── item.dart                 # Item エンティティと ItemId
+├── item_name.dart            # 項目名のバリデーション(トリム・長さ)
+├── item_icon.dart            # 項目のアイコン種別(DB に保存するキー)
+├── item_repository.dart      # 項目リポジトリのインターフェース(実装は data/ に置く)
+├── category.dart             # Category エンティティと CategoryId
+├── category_name.dart        # カテゴリ名のバリデーション
+├── category_repository.dart  # カテゴリリポジトリのインターフェース
+├── elapsed_days.dart         # 経過日数の算出と ElapsedLabel
+├── baseline_interval.dart    # 実施履歴から基準間隔を算出する
+├── aging_stage.dart          # 相対経過度から経年ステージを判定する
+└── clock.dart                # Clock 抽象と SystemClock 実装
 ```
 
 - **依存してよいもの**: Dart 標準ライブラリのみ
@@ -64,11 +70,13 @@ domain/
 ```
 data/
 ├── database/
-│   ├── app_database.dart      # Drift の DB 定義・テーブル・schemaVersion
-│   └── app_database.g.dart    # 生成物(追跡する)
+│   ├── app_database.dart        # Drift の DB 定義・テーブル・schemaVersion
+│   ├── app_database.g.dart      # 生成物(追跡する)
+│   └── app_database.steps.dart  # スキーマのバージョン間ステップ(生成物・追跡する)
 ├── migrations/
-│   └── migrations.dart        # MigrationStrategy
-└── item_repository_impl.dart  # ItemRepository の Drift 実装
+│   └── migrations.dart          # MigrationStrategy
+├── item_repository_impl.dart    # ItemRepository の Drift 実装
+└── category_repository_impl.dart # CategoryRepository の Drift 実装
 ```
 
 - **依存してよいもの**: `domain/`、Drift、`path_provider`
@@ -79,9 +87,17 @@ data/
 
 ```
 state/
-├── providers.dart           # Riverpod の Provider 定義(DB・リポジトリ・Clock)
-├── item_list_notifier.dart  # 一覧の状態と操作(追加・記録・取り消し・削除)
-└── item_view.dart           # UI 向けの表示モデル
+├── providers.dart              # Riverpod の Provider 定義(DB・リポジトリ・Clock)
+├── item_list_notifier.dart     # 一覧の状態と操作(追加・記録・取り消し・削除)
+├── item_view.dart              # UI 向けの表示モデル
+├── item_order.dart             # 一覧の既定の並び(相対経過度の降順)
+├── category_list_notifier.dart # カテゴリ一覧の状態と操作
+├── category_filter.dart        # 一覧のカテゴリ絞り込み
+├── collection.dart             # 図鑑に載せる項目と図鑑の絞り込み
+├── add_item_result.dart        # 操作結果の型(例外を投げずに分岐を返す)
+├── edit_item_result.dart       #   〃
+├── mark_done_result.dart       #   〃
+└── category_results.dart       #   〃(カテゴリの操作)
 ```
 
 - **依存してよいもの**: `domain/`、`data/`(Provider の組み立てのみ)、Riverpod
@@ -93,15 +109,31 @@ state/
 ```
 ui/
 ├── theme/
-│   └── app_theme.dart        # ColorScheme.fromSeed とタイポグラフィ
+│   └── app_theme.dart              # ColorScheme.fromSeed とタイポグラフィ
+├── item_navigation.dart            # 詳細シート・編集画面を開く関数(一覧と図鑑から使う)
+├── item_icon_glyph.dart            # アイコン種別 → 描画データの対応
+├── item_name_error_text.dart       # 検証エラー → 入力欄の文言
+├── category_name_error_text.dart   #   〃(カテゴリ名)
 ├── screens/
-│   ├── item_list_screen.dart # 一覧(F1・F3・F5)
-│   ├── item_add_screen.dart  # 新規登録(F2)
-│   └── item_edit_screen.dart # 編集・削除(F6・F7)
+│   ├── home_shell.dart             # 下部ナビでホームと図鑑を切り替える外枠(F31)
+│   ├── item_list_screen.dart       # 一覧 = ホーム(F1・F3・F5)
+│   ├── collection_screen.dart      # 図鑑(F31)
+│   ├── item_add_screen.dart        # 新規登録(F2)
+│   ├── item_edit_screen.dart       # 編集・削除(F6・F7)
+│   └── category_manage_screen.dart # カテゴリの管理(F13)
 └── widgets/
-    ├── item_row.dart         # 一覧の 1 行。経過日数を最大要素として組む
-    ├── done_button.dart      # 「やった」ボタン(56dp 以上)
-    └── empty_state.dart      # 項目 0 件のときの表示
+    ├── item_card.dart              # 一覧の 1 枚のカード。経過日数を最大要素として組む
+    ├── collection_card.dart        # 図鑑のカード
+    ├── aged_paper.dart             # 経年ステージに応じた紙の描画
+    ├── item_detail_sheet.dart      # 項目の詳細シート
+    ├── done_button.dart            # 「やった」ボタン(56dp 以上)
+    ├── empty_state.dart            # 項目 0 件のときの表示
+    ├── load_error.dart             # 一覧を読み込めなかったときの表示
+    ├── centered_scrollable.dart    # 中央寄せ + はみ出すときだけスクロール
+    ├── category_filter_bar.dart    # カテゴリの絞り込みチップ列
+    ├── category_name_dialog.dart   # カテゴリ名の入力ダイアログ
+    ├── item_category_picker.dart   # 登録・編集画面のカテゴリ選択欄
+    └── item_icon_picker.dart       # アイコンの選択欄
 ```
 
 - **依存してよいもの**: `state/`、Flutter、Material 3
@@ -120,14 +152,23 @@ test/
 ├── state/
 │   └── item_list_notifier_test.dart  # フェイクリポジトリ + 固定 Clock
 ├── data/
-│   └── item_repository_impl_test.dart # インメモリ DB での CRUD と移行
+│   ├── item_repository_impl_test.dart # インメモリ DB での CRUD
+│   └── drift/app_database/
+│       ├── migration_test.dart        # 全バージョン間の移行テスト
+│       └── generated/                 # スキーマのスナップショット(schema_vN.dart。生成物・追跡する)
 ├── ui/
-│   └── item_list_screen_test.dart     # ウィジェットテスト(主要導線)
+│   ├── item_list_screen_test.dart     # ウィジェットテスト(主要導線)
+│   ├── accessibility_test.dart        # 画面横断の検査(文字サイズ・タップ領域など)
+│   ├── terminology_test.dart          # UI 文言の表記ゆれ検査
+│   ├── screens/                       # 画面単位のテスト
+│   ├── widgets/                       # ウィジェット単位のテスト
+│   └── theme/
 ├── architecture/
 │   └── layer_dependency_test.dart     # レイヤー間 import の禁止を機械検査する
 └── support/
     ├── fake_clock.dart          # 任意の時刻を返す Clock
-    └── fake_item_repository.dart
+    ├── fake_item_repository.dart
+    └── fake_category_repository.dart
 ```
 
 - **`support/` はテスト用のフェイクとヘルパ置き場**。本体のコードから参照しない
