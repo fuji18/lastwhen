@@ -25,6 +25,7 @@
 | Riverpod (`flutter_riverpod`) | ^3.x | 状態管理・依存注入 | テスト時に `Clock` と `ItemRepository` を差し替えられる |
 | uuid | ^4.x | 項目 ID の採番 | 将来のクラウド同期(P2)で衝突しない ID が要る |
 | intl | **Flutter SDK が要求する版に合わせる** | 日付の日本語整形 | `2026年9月12日` 形式をロケール経由で出す |
+| flutter_localizations | Flutter 同梱 | Material 標準部品の日本語化 | `showDatePicker`(F16)の月名・曜日・ボタンを日本語で出す。`MaterialApp` のロケールを `ja` に固定する(#49)。SDK 同梱で外部パッケージを増やさない |
 
 > **`intl` を使わず自前で整形しない理由**: MVP は日本語のみだが、`DateFormat` を通しておけば
 > 多言語対応が文字列リソースの追加だけで済む。自前整形は後で必ず書き直しになる。
