@@ -51,7 +51,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final items = ref.watch(itemListProvider);
+    final items = ref.watch(collectionItemsProvider);
     final categories = ref.watch(categoryListProvider).value ?? const [];
     final filter = resolveCategoryId(
       ref.watch(collectionCategoryFilterProvider),

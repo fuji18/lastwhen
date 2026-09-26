@@ -10,6 +10,9 @@ import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/add_item_result.dart';
 import 'package:lastwhen/state/edit_item_result.dart';
+import 'package:lastwhen/state/collection.dart';
+import 'package:lastwhen/state/item_order.dart';
+import 'package:lastwhen/state/item_sort_order.dart';
 import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
 import 'package:lastwhen/state/providers.dart';
@@ -807,6 +810,121 @@ void main() {
       );
       expect(container.read(itemListProvider), same(before));
       await container.read(itemListProvider.future);
+    });
+  });
+  group('並び順の選択(F15)', () {
+    Future<ProviderContainer> ready() async {
+      final car = await repository.add('車の点検', now: now);
+      await repository.add('美容院', now: now);
+      final bath = await repository.add('風呂掃除', now: now);
+      for (final days in [540, 360, 180]) {
+        await repository.markDone(car.id, now.subtract(Duration(days: days)));
+      }
+      for (final days in [28, 21, 14]) {
+        await repository.markDone(bath.id, now.subtract(Duration(days: days)));
+      }
+      final container = _container(repository, FakeClock(now));
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      return container;
+    }
+
+    Future<List<ItemView>> current(ProviderContainer container) async {
+      await Future<void>.delayed(Duration.zero);
+      return container.read(itemListProvider).requireValue;
+    }
+
+    test('既定は経年順', () async {
+      final container = await ready();
+      expect(container.read(itemSortOrderProvider), ItemSortOrder.aging);
+    });
+    test('名前順を選ぶとすぐに名前順で確定する', () async {
+      final container = await ready();
+      await repository.add('あさ散歩', now: now);
+      expect((await current(container)).last.name, 'あさ散歩');
+      container.read(itemSortOrderProvider.notifier).select(ItemSortOrder.name);
+      expect((await current(container)).first.name, 'あさ散歩');
+    });
+    test('経過日数順では未実施が下部で日数の降順', () async {
+      final container = await ready();
+      container
+          .read(itemSortOrderProvider.notifier)
+          .select(ItemSortOrder.elapsedDays);
+      expect((await current(container)).map((v) => v.name), [
+        '車の点検',
+        '風呂掃除',
+        '美容院',
+      ]);
+    });
+    test('登録順を選ぶと登録した順になる', () async {
+      final container = await ready();
+      container
+          .read(itemSortOrderProvider.notifier)
+          .select(ItemSortOrder.registered);
+      expect((await current(container)).map((v) => v.name), [
+        '車の点検',
+        '美容院',
+        '風呂掃除',
+      ]);
+    });
+    test('経過日数順で記録しても組み替えない', () async {
+      final container = await ready();
+      container
+          .read(itemSortOrderProvider.notifier)
+          .select(ItemSortOrder.elapsedDays);
+      final id = (await current(container)).first.id;
+      await container.read(itemListProvider.notifier).markDone(id);
+      final views = await current(container);
+      expect(views.map((v) => v.name), ['車の点検', '風呂掃除', '美容院']);
+      expect(views.first.elapsed, isA<Today>());
+    });
+    test('記録後に refreshOrder を呼ぶと選んだ並び順で確定し直す', () async {
+      final container = await ready();
+      container
+          .read(itemSortOrderProvider.notifier)
+          .select(ItemSortOrder.elapsedDays);
+      final notifier = container.read(itemListProvider.notifier);
+      await notifier.markDone((await current(container)).first.id);
+      await current(container);
+      notifier.refreshOrder();
+      expect((await current(container)).map((v) => v.name), [
+        '風呂掃除',
+        '車の点検',
+        '美容院',
+      ]);
+    });
+    test('読み込み中に並び順を選んでも例外を投げない', () async {
+      await repository.add('い', now: now);
+      await repository.add('あ', now: now);
+      final container = _container(repository, FakeClock(now));
+      expect(
+        container.read(itemListProvider),
+        isA<AsyncLoading<List<ItemView>>>(),
+      );
+      expect(
+        () => container
+            .read(itemSortOrderProvider.notifier)
+            .select(ItemSortOrder.name),
+        returnsNormally,
+      );
+      final views = await container.read(itemListProvider.future);
+      expect(views.map((v) => v.name), ['あ', 'い']);
+    });
+    test('図鑑の供給源は選んだ並び順に追従しない', () async {
+      final container = await ready();
+      container.listen(collectionItemsProvider, (_, _) {});
+      expect(
+        container.read(collectionItemsProvider).requireValue.map((v) => v.name),
+        ['風呂掃除', '車の点検', '美容院'],
+      );
+      container
+          .read(itemSortOrderProvider.notifier)
+          .select(ItemSortOrder.registered);
+      await current(container);
+      expect(
+        container.read(collectionItemsProvider).requireValue.map((v) => v.name),
+        ['風呂掃除', '車の点検', '美容院'],
+      );
     });
   });
 }
