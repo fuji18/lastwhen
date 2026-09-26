@@ -5,6 +5,7 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
+import 'package:lastwhen/ui/screens/home_shell.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
@@ -137,7 +138,7 @@ void main() {
     await tester.pumpWidget(_app(repository, FakeClock(now)));
     await tester.pumpAndSettle();
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(app.home, isA<ItemListScreen>());
+    expect(app.home, isA<HomeShell>());
     expect(find.byType(ItemListScreen), findsOneWidget);
   });
 

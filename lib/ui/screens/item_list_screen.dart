@@ -10,16 +10,16 @@ import '../../state/category_list_notifier.dart';
 import '../../state/mark_done_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
+import '../item_navigation.dart';
 import '../widgets/category_filter_bar.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_card.dart';
-import '../widgets/item_detail_sheet.dart';
+import '../widgets/load_error.dart';
 import 'category_manage_screen.dart';
 import 'item_add_screen.dart';
-import 'item_edit_screen.dart';
 
-/// 一覧画面。**起動直後に出る唯一の画面**(`docs/functional-design.md`「画面遷移図」)。
+/// 一覧画面。**起動直後に出る画面**(ホーム)。図鑑とは下部ナビで切り替える(#34)。
 class ItemListScreen extends ConsumerStatefulWidget {
   /// 一覧画面を作る。
   const ItemListScreen({super.key});
@@ -77,7 +77,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
                 _openAddScreen(context, initialCategoryId: filter),
           ),
           AsyncData(:final value) => _buildList(value, categories, filter),
-          AsyncError() => _LoadError(
+          AsyncError() => LoadError(
             onRetry: () => ref.invalidate(itemListProvider),
           ),
           _ => const Center(
@@ -143,41 +143,6 @@ void _openCategoryManageScreen(BuildContext context) {
   );
 }
 
-/// 詳細シートを開く。編集画面への入口はシートの中にある。
-Future<void> _openDetailSheet(BuildContext context, ItemView item) async {
-  // 画面遷移と同じく、取り消し導線を閉じる。
-  ScaffoldMessenger.of(context).clearSnackBars();
-  final openEdit = await showModalBottomSheet<bool>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (sheetContext) => ItemDetailSheet(
-      item: item,
-      onEditPressed: () => Navigator.of(sheetContext).pop(true),
-    ),
-  );
-  if (openEdit == true && context.mounted) {
-    _openEditScreen(context, item);
-  }
-}
-
-/// 編集画面へ遷移する。**削除の入口でもある**(`docs/product-requirements.md` F7)。
-void _openEditScreen(BuildContext context, ItemView item) {
-  // ScaffoldMessenger は Navigator の上にあり、閉じないと遷移後も導線が残る(判断13)。
-  ScaffoldMessenger.of(context).clearSnackBars();
-  Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (context) => ItemEditScreen(
-        itemId: item.id,
-        initialName: item.name,
-        initialIcon: item.icon,
-        initialCategoryId: item.categoryId,
-      ),
-    ),
-  );
-}
-
 /// 項目が 1 件以上あるときの一覧。
 class _ItemList extends ConsumerWidget {
   const _ItemList({required this.items});
@@ -196,7 +161,7 @@ class _ItemList extends ConsumerWidget {
         return ItemCard(
           item: item,
           onDonePressed: () => _handleDone(context, ref, item.id),
-          onTap: () => unawaited(_openDetailSheet(context, item)),
+          onTap: () => unawaited(openItemDetailSheet(context, item)),
         );
       },
     );
@@ -215,43 +180,6 @@ class _FilteredEmpty extends StatelessWidget {
         'このカテゴリの項目はありません',
         style: theme.textTheme.bodyLarge,
         textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-/// 一覧そのものを読み込めなかったときの表示。
-///
-/// DB のオープン失敗・購読の切断がここに来る(`docs/functional-design.md`
-/// 「エラーハンドリング」)。書き込みの失敗はここに来ない(`SnackBar` に出す)。
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return CenteredScrollable(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ExcludeSemantics(
-            child: Icon(
-              Icons.error_outline,
-              size: 48,
-              color: theme.colorScheme.error,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'データを読み込めませんでした',
-            style: theme.textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          FilledButton(onPressed: onRetry, child: const Text('再試行')),
-        ],
       ),
     );
   }

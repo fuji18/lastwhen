@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderObject, RenderParagraph;
+import 'package:flutter/rendering.dart'
+    show RenderBox, RenderIndexedStack, RenderObject, RenderParagraph;
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,6 +65,19 @@ List<String> _semanticsLabels(WidgetTester tester) {
 List<String> _ellipsizedTexts(WidgetTester tester) {
   final found = <String>[];
   void visit(RenderObject object) {
+    // IndexedStack は非選択側の子も配下に持ち続けるが、選択中の 1 つしか描画・判定しない
+    // (`RenderIndexedStack.visitChildrenForSemantics` と同じ考え方)。図鑑タブなど利用者に
+    // 見えない側は数えない(#34)。
+    if (object is RenderIndexedStack) {
+      RenderBox? child = object.firstChild;
+      for (var i = 0; i < (object.index ?? -1) && child != null; i += 1) {
+        child = object.childAfter(child);
+      }
+      if (object.index != null && child != null) {
+        visit(child);
+      }
+      return;
+    }
     if (object is RenderParagraph && object.didExceedMaxLines) {
       found.add(object.text.toPlainText());
     }
