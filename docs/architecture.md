@@ -43,7 +43,7 @@
 
 ### 生成コードの扱い
 
-**`*.g.dart` / `*.drift.dart` は git で追跡する。**
+**`*.g.dart` / `*.drift.dart` / `*.steps.dart`、およびテスト用のスキーマスナップショット(`test/data/drift/app_database/generated/`)は git で追跡する。**
 
 | 選択肢 | 採否 | 理由 |
 | --- | --- | --- |
