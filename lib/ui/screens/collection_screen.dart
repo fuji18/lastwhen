@@ -57,48 +57,59 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
       ref.watch(collectionCategoryFilterProvider),
       categories,
     );
-    return Scaffold(
-      appBar: _searching
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: '検索を閉じる',
-                onPressed: _closeSearch,
-              ),
-              title: TextField(
-                controller: _queryController,
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: '項目名で検索',
-                  border: InputBorder.none,
+    return PopScope(
+      // 検索中はシステムの戻るで検索を閉じる(アプリを終了させない)。
+      // 図鑑は HomeShell の IndexedStack に常駐するため、タブが見えていないときは
+      // 戻るを横取りしない(Visibility.of は非選択のタブで false を返す)。
+      canPop: !(_searching && Visibility.of(context)),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _closeSearch();
+        }
+      },
+      child: Scaffold(
+        appBar: _searching
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: '検索を閉じる',
+                  onPressed: _closeSearch,
                 ),
-              ),
-            )
-          : AppBar(
-              title: const Text('図鑑'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  tooltip: '検索',
-                  onPressed: _openSearch,
+                title: TextField(
+                  controller: _queryController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  decoration: const InputDecoration(
+                    hintText: '項目名で検索',
+                    border: InputBorder.none,
+                  ),
                 ),
-              ],
+              )
+            : AppBar(
+                title: const Text('図鑑'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    tooltip: '検索',
+                    onPressed: _openSearch,
+                  ),
+                ],
+              ),
+        body: SafeArea(
+          child: switch (items) {
+            AsyncData(:final value) => _buildCollection(
+              value,
+              categories,
+              filter,
             ),
-      body: SafeArea(
-        child: switch (items) {
-          AsyncData(:final value) => _buildCollection(
-            value,
-            categories,
-            filter,
-          ),
-          AsyncError() => LoadError(
-            onRetry: () => ref.invalidate(itemListProvider),
-          ),
-          _ => const Center(
-            child: CircularProgressIndicator(semanticsLabel: '読み込み中'),
-          ),
-        },
+            AsyncError() => LoadError(
+              onRetry: () => ref.invalidate(itemListProvider),
+            ),
+            _ => const Center(
+              child: CircularProgressIndicator(semanticsLabel: '読み込み中'),
+            ),
+          },
+        ),
       ),
     );
   }
