@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/category.dart';
 import '../domain/elapsed_days.dart';
 import 'category_filter.dart';
+import 'item_list_notifier.dart';
+import 'item_order.dart';
 import 'item_view.dart';
 
 /// 図鑑の絞り込み。**null は「すべて」。一覧の [categoryFilterProvider] とは独立**で、保存しない。
@@ -10,6 +12,15 @@ final collectionCategoryFilterProvider =
     NotifierProvider<CategoryFilterNotifier, CategoryId?>(
       CategoryFilterNotifier.new,
     );
+
+/// 図鑑の供給源。一覧で選んだ並び順(F15)に追従せず、**常に F30 の確定済みの並び**で流す。
+///
+/// `agingOrder` は state の更新と同時に書き換わるため、state を watch していれば読み遅れない。
+final collectionItemsProvider = Provider<AsyncValue<List<ItemView>>>((ref) {
+  final items = ref.watch(itemListProvider);
+  final order = ref.read(itemListProvider.notifier).agingOrder;
+  return items.whenData((views) => applyFixedOrder(views, order));
+});
 
 /// 図鑑に載せる項目を、**入力順を保って**返す(F31)。
 ///

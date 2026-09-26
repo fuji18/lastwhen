@@ -12,7 +12,116 @@ ItemView _view(String id, double? relative) => ItemView(
   relativeElapsed: relative,
 );
 
+ItemView _named(
+  String id, {
+  String? name,
+  ElapsedLabel elapsed = const NeverDone(),
+}) => ItemView(
+  id: ItemId(id),
+  name: name ?? id,
+  elapsed: elapsed,
+  lastDoneText: null,
+);
+
 void main() {
+  group('sortItemViews', () {
+    test('経年順は sortByRelativeElapsed と同じになる', () {
+      final views = [_view('n1', null), _view('a', 1), _view('b', 2)];
+      expect(
+        sortItemViews(views, ItemSortOrder.aging),
+        sortByRelativeElapsed(views),
+      );
+    });
+    test('経過日数順は日数の降順で未実施は下部に登録順でまとまる', () {
+      final views = [
+        _named('n1'),
+        _named('b', elapsed: const DaysAgo(3)),
+        _named('c', elapsed: const Today()),
+        _named('d', elapsed: const DaysAgo(10)),
+        _named('n2'),
+        _named('e', elapsed: const Yesterday()),
+      ];
+      expect(
+        sortItemViews(views, ItemSortOrder.elapsedDays).map((v) => v.name),
+        ['d', 'b', 'e', 'c', 'n1', 'n2'],
+      );
+    });
+    test('経過日数順で同じ日数は登録順を保つ', () {
+      final views = [
+        for (final id in ['a', 'b', 'c']) _named(id, elapsed: const DaysAgo(5)),
+      ];
+      expect(sortItemViews(views, ItemSortOrder.elapsedDays), views);
+    });
+    test('名前順はかなの表記を畳んで五十音に並ぶ', () {
+      final views = [
+        for (final name in ['ゴミ出し', '洗濯', 'ごはん', 'ｂａｎａｎａ', 'あさ', 'Apple'])
+          _named(name),
+      ];
+      expect(sortItemViews(views, ItemSortOrder.name).map((v) => v.name), [
+        'Apple',
+        'ｂａｎａｎａ',
+        'あさ',
+        'ごはん',
+        'ゴミ出し',
+        '洗濯',
+      ]);
+    });
+    test('名前順で同じ名前は登録順を保つ', () {
+      final views = [
+        _named('a', name: '掃除'),
+        _named('b', name: '掃除'),
+        _named('c', name: 'あ'),
+      ];
+      expect(sortItemViews(views, ItemSortOrder.name).map((v) => v.id), [
+        const ItemId('c'),
+        const ItemId('a'),
+        const ItemId('b'),
+      ]);
+    });
+    test('名前順は未実施を区別しない', () {
+      final views = [
+        _named('a', name: 'い', elapsed: const DaysAgo(3)),
+        _named('b', name: 'あ'),
+      ];
+      expect(sortItemViews(views, ItemSortOrder.name), [views[1], views[0]]);
+    });
+    test('登録順は入力順のまま', () {
+      final views = [
+        _named('a', name: 'う', elapsed: const Today()),
+        _named('b', name: 'あ'),
+        _named('c', name: 'い', elapsed: const DaysAgo(5)),
+      ];
+      expect(sortItemViews(views, ItemSortOrder.registered), views);
+    });
+    test('空リストは全ての並び順で空になる', () {
+      for (final order in ItemSortOrder.values) {
+        expect(sortItemViews([], order), isEmpty);
+      }
+    });
+    test('全ての並び順で入力を変更せず新しいリストを返す', () {
+      final views = [_named('b'), _named('a', elapsed: const DaysAgo(3))];
+      final before = [...views];
+      for (final order in ItemSortOrder.values) {
+        expect(identical(sortItemViews(views, order), views), isFalse);
+        expect(views, before);
+      }
+    });
+  });
+  group('nameSortKey', () {
+    for (final entry in {
+      'ＡＢＣ　ｘ１': 'abc x1',
+      'カタカナ': 'かたかな',
+      'ヴ': 'ゔ',
+      'コーヒー': 'こーひー',
+      'ｶﾀ': 'ｶﾀ',
+      '洗濯': '洗濯',
+    }.entries) {
+      test('${entry.key} は ${entry.value} になる', () {
+        expect(nameSortKey(entry.key), entry.value);
+      });
+    }
+  });
+
   group('sortByRelativeElapsed', () {
     test('空リストなら空になる', () {
       expect(sortByRelativeElapsed([]), isEmpty);

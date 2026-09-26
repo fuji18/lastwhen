@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/state/item_order.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/home_shell.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
@@ -530,6 +531,121 @@ void main() {
       await tester.tap(find.byTooltip('カテゴリを管理'));
       await tester.pumpAndSettle();
       expect(find.byType(CategoryManageScreen), findsOneWidget);
+    });
+  });
+  group('並び順の選択(F15)', () {
+    Future<void> pumpOrderedItems(WidgetTester tester) async {
+      final car = await repository.add('車の点検', now: now);
+      await repository.add('美容院', now: now);
+      final bath = await repository.add('風呂掃除', now: now);
+      for (final days in [540, 360, 180]) {
+        await repository.markDone(car.id, now.subtract(Duration(days: days)));
+      }
+      for (final days in [28, 21, 14]) {
+        await repository.markDone(bath.id, now.subtract(Duration(days: days)));
+      }
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> recordBath(WidgetTester tester) async {
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ItemCard, '風呂掃除'),
+          matching: find.byType(DoneButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    double top(WidgetTester tester, String name) =>
+        tester.getTopLeft(find.text(name)).dy;
+
+    Future<void> selectOrder(WidgetTester tester, String label) async {
+      await tester.tap(find.byTooltip('並び順'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<ItemSortOrder>, label),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    CheckedPopupMenuItem<ItemSortOrder> menuItem(
+      WidgetTester tester,
+      String label,
+    ) => tester.widget<CheckedPopupMenuItem<ItemSortOrder>>(
+      find.widgetWithText(CheckedPopupMenuItem<ItemSortOrder>, label),
+    );
+
+    testWidgets('項目があると並び順ボタンが出て空のときは出ない', (tester) async {
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('並び順'), findsNothing);
+      await pumpOrderedItems(tester);
+      expect(find.byTooltip('並び順'), findsOneWidget);
+    });
+    testWidgets('メニューに4つの並び順が出て経年順にチェックが付いている', (tester) async {
+      await pumpOrderedItems(tester);
+      await tester.tap(find.byTooltip('並び順'));
+      await tester.pumpAndSettle();
+      for (final label in ['経年順', '経過日数順', '名前順', '登録順']) {
+        expect(find.text(label), findsOneWidget);
+        expect(menuItem(tester, label).checked, label == '経年順');
+      }
+    });
+    testWidgets('登録順を選ぶと登録した順に並ぶ', (tester) async {
+      await pumpOrderedItems(tester);
+      await selectOrder(tester, '登録順');
+      expect(top(tester, '車の点検'), lessThan(top(tester, '美容院')));
+      expect(top(tester, '美容院'), lessThan(top(tester, '風呂掃除')));
+    });
+    testWidgets('経過日数順で記録してもカードの位置が変わらない', (tester) async {
+      await pumpOrderedItems(tester);
+      await selectOrder(tester, '経過日数順');
+      final before = top(tester, '風呂掃除');
+      await recordBath(tester);
+      expect(top(tester, '風呂掃除'), before);
+      expect(find.text('今日'), findsOneWidget);
+    });
+    testWidgets('絞り込みと併用しても選んだ並びを保つ', (tester) async {
+      final categories = FakeCategoryRepository(items: repository);
+      addTearDown(categories.dispose);
+      final category = await categories.add('家のこと');
+      final car = await repository.add(
+        '車の点検',
+        categoryId: category.id,
+        now: now,
+      );
+      await repository.add('美容院', now: now);
+      final bath = await repository.add(
+        '風呂掃除',
+        categoryId: category.id,
+        now: now,
+      );
+      for (final days in [540, 360, 180]) {
+        await repository.markDone(car.id, now.subtract(Duration(days: days)));
+      }
+      for (final days in [28, 21, 14]) {
+        await repository.markDone(bath.id, now.subtract(Duration(days: days)));
+      }
+      await tester.pumpWidget(
+        _app(repository, FakeClock(now), categoryRepository: categories),
+      );
+      await tester.pumpAndSettle();
+      expect(top(tester, '風呂掃除'), lessThan(top(tester, '車の点検')));
+      await selectOrder(tester, '登録順');
+      await tester.tap(find.text('家のこと'));
+      await tester.pumpAndSettle();
+      expect(find.text('美容院'), findsNothing);
+      expect(top(tester, '車の点検'), lessThan(top(tester, '風呂掃除')));
+    });
+    testWidgets('選び直した並び順にチェックが移る', (tester) async {
+      await pumpOrderedItems(tester);
+      await selectOrder(tester, '名前順');
+      await tester.tap(find.byTooltip('並び順'));
+      await tester.pumpAndSettle();
+      expect(menuItem(tester, '名前順').checked, isTrue);
+      expect(menuItem(tester, '経年順').checked, isFalse);
     });
   });
 }

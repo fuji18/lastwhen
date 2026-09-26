@@ -11,6 +11,7 @@ import '../domain/past_date_record.dart';
 import 'add_item_result.dart';
 import 'edit_item_result.dart';
 import 'item_order.dart';
+import 'item_sort_order.dart';
 import 'item_view.dart';
 import 'mark_done_result.dart';
 import 'providers.dart';
@@ -30,13 +31,22 @@ final DateFormat _pickedDateFormat = DateFormat('M月d日');
 /// **`StreamNotifier` を継承する**(design.md 判断1)。供給源の `watchAll()` が Stream なので、
 /// 購読・初回値・破棄を Riverpod 側に持たせる。
 /// 登録・記録・取り消しは結果型を返し、一覧の更新は購読に任せる。
-/// 並び順は相対経過度の降順(F30)。記録では組み替えず、開き直し・復帰で確定し直す。
+/// 並び順は選択中の [ItemSortOrder](既定は F30 の相対経過度の降順)。記録では組み替えず、
+/// 開き直し・復帰・並び順の選び直しで確定し直す。図鑑用に経年順の確定済みの並びも別に持つ。
 class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   /// 最後に流れてきたドメインの一覧。取り消し用の直前値を引くために控える(判断4)。
   List<Item> _latestItems = const <Item>[];
 
-  /// 確定済みの並び順。null のときは次の emit で確定する。
+  /// 確定済みの並び順(選択中の並び順で確定)。null のときは次の emit で確定する。
   List<ItemId>? _fixedOrder;
+
+  /// 確定済みの経年順(F30)。図鑑は選んだ並び順に追従しないので別に持つ。null は次の emit で確定。
+  List<ItemId>? _fixedAgingOrder;
+
+  /// 確定済みの経年順の ID 列。`collectionItemsProvider` が読む。未確定なら空。
+  ///
+  /// state の更新と同時に書き換わるので、state を watch している側が読めば食い違わない。
+  List<ItemId> get agingOrder => _fixedAgingOrder ?? const <ItemId>[];
 
   @override
   Stream<List<ItemView>> build() {
@@ -44,6 +54,12 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     final clock = ref.watch(clockProvider);
     // build し直し = 一覧を開き直した扱い。次の emit で並びを確定させる。
     _fixedOrder = null;
+    _fixedAgingOrder = null;
+    // watch しない。build し直すと watchAll() を購読し直し、読み込み中の表示が一瞬出る(判断E)。
+    ref.listen(
+      itemSortOrderProvider,
+      (_, _) => _reconfirm(includeAging: false),
+    );
     // now は 1 回の emit につき 1 つ。行ごとに Clock を呼ばない(判断2)。
     return repository.watchAll().map((items) {
       _latestItems = items;
@@ -51,11 +67,17 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     });
   }
 
-  /// 未確定なら相対経過度で確定させ、確定済みならその並びを保つ。
+  /// 未確定なら確定させ、確定済みならその並びを保つ。選んだ並びと経年順の両方を扱う。
   List<ItemView> _ordered(List<ItemView> views) {
+    final agingFixed = _fixedAgingOrder;
+    final aging = agingFixed == null
+        ? sortByRelativeElapsed(views)
+        : applyFixedOrder(views, agingFixed);
+    _fixedAgingOrder = [for (final view in aging) view.id];
+
     final fixed = _fixedOrder;
     final ordered = fixed == null
-        ? sortByRelativeElapsed(views)
+        ? sortItemViews(views, ref.read(itemSortOrderProvider))
         : applyFixedOrder(views, fixed);
     _fixedOrder = [for (final view in ordered) view.id];
     return ordered;
@@ -103,11 +125,19 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   /// アプリ復帰時に、現在時刻で経過日数と並び順を確定し直す。
   ///
   /// 一覧が未取得・読み込み失敗なら何もしない。初回 emit で確定する。
-  void refreshOrder() {
+  void refreshOrder() => _reconfirm(includeAging: true);
+
+  /// 現在時刻で経過日数を数え直し、選んだ並びを確定し直す。[includeAging] なら図鑑用の経年順も。
+  ///
+  /// 一覧が未取得・読み込み失敗なら何もしない。初回 emit で確定する。
+  void _reconfirm({required bool includeAging}) {
     if (state is! AsyncData<List<ItemView>>) {
       return;
     }
     _fixedOrder = null;
+    if (includeAging) {
+      _fixedAgingOrder = null;
+    }
     state = AsyncData(
       _ordered(toItemViews(_latestItems, now: ref.read(clockProvider).now())),
     );
