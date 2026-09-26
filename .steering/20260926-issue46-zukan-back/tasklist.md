@@ -16,10 +16,10 @@
 
 ## フェーズ1: 実装
 
-- [ ] `lib/ui/screens/collection_screen.dart` の `Scaffold` を `PopScope` で包む(design.md 判断1)
-- [ ] `test/ui/screens/collection_screen_test.dart` にヘルパー `recordSystemPops` とテスト 3 件を追加(design.md 判断2)
+- [x] `lib/ui/screens/collection_screen.dart` の `Scaffold` を `PopScope` で包む(design.md 判断1)
+- [x] `test/ui/screens/collection_screen_test.dart` にヘルパー `recordSystemPops` とテスト 3 件を追加(design.md 判断2)
 
 ## フェーズ2: 検証
 
-- [ ] `dart format` と `flutter analyze --fatal-infos` を通す(変更した 2 ファイル)
-- [ ] `flutter test test/ui/screens/collection_screen_test.dart` を通す(sandbox で実行できない場合はホスト(`/check` / CI)に委ねる旨をここに記録する)
+- [x] `dart format` と `flutter analyze --fatal-infos` を通す(変更した 2 ファイル。AGENTS.md に従いキャッシュ内の Dart SDK で format / analyze --fatal-infos を実行し、問題なし)
+- [x] ~~`flutter test test/ui/screens/collection_screen_test.dart` を通す~~(理由: AGENTS.md の規約に従い、テストは sandbox では実行できないためホスト(`/check` / CI)に委ねた。テスト実行・合否確認は未実施)

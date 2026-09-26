@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
@@ -145,6 +146,27 @@ void main() {
   });
 
   group('検索', () {
+    /// `SystemNavigator.pop`(アプリの終了)が呼ばれた回数を数える。
+    List<String> recordSystemPops(WidgetTester tester) {
+      final pops = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemNavigator.pop') {
+            pops.add(call.method);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      return pops;
+    }
+
     testWidgets('検索ボタンから入力すると部分一致に絞れる', (tester) async {
       await pumpItems(tester);
       await _openCollection(tester);
@@ -175,6 +197,55 @@ void main() {
       await tester.tap(find.byTooltip('検索を閉じる'));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(CollectionCard, '美容院'), findsOneWidget);
+    });
+
+    testWidgets('検索中にシステムの戻るを押すと検索が閉じ、アプリは閉じない', (tester) async {
+      await pumpItems(tester);
+      await _openCollection(tester);
+      final pops = recordSystemPops(tester);
+      await tester.tap(find.byTooltip('検索'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '存在しない項目名');
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(pops, isEmpty);
+      expect(find.byTooltip('検索'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.widgetWithText(CollectionCard, '美容院'), findsOneWidget);
+    });
+
+    testWidgets('検索中でなければシステムの戻るはアプリの既定の動き(終了)になる', (tester) async {
+      await pumpItems(tester);
+      await _openCollection(tester);
+      final pops = recordSystemPops(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(pops, hasLength(1));
+    });
+
+    testWidgets('図鑑で検索を開いたままホームへ移ると、戻るを横取りしない', (tester) async {
+      await pumpItems(tester);
+      await _openCollection(tester);
+      final pops = recordSystemPops(tester);
+      await tester.tap(find.byTooltip('検索'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('ホーム'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(pops, hasLength(1));
     });
   });
 
