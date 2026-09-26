@@ -17,9 +17,11 @@ final class FakeItemRepository implements ItemRepository {
       StreamController<List<Item>>.broadcast();
 
   /// 項目ごとの履歴(新しい順)。`ItemRepositoryImpl` の `done_logs` に相当する。
-  final Map<ItemId, List<DateTime>> _doneLogs = <ItemId, List<DateTime>>{};
+  final Map<ItemId, List<_FakeDoneLog>> _doneLogs =
+      <ItemId, List<_FakeDoneLog>>{};
 
   int _idSequence = 0;
+  int _logSequence = 0;
 
   /// 非 null のとき、**すべての書き込み**がこの値を投げる。DB 書き込み失敗の再現用。
   ///
@@ -102,7 +104,7 @@ final class FakeItemRepository implements ItemRepository {
       return;
     }
     final timestamp = _normalize(doneAt);
-    (_doneLogs[id] ??= <DateTime>[]).insert(0, timestamp);
+    _insertLog(id, timestamp);
     _update(
       id,
       (item) => _copy(item, lastDoneAt: timestamp, updatedAt: timestamp),
@@ -126,6 +128,56 @@ final class FakeItemRepository implements ItemRepository {
       (item) => _copy(
         item,
         lastDoneAt: previous == null ? null : _normalize(previous),
+        updatedAt: _normalize(now),
+      ),
+    );
+  }
+
+  /// 実装の ORDER BY done_at DESC, rowid DESC と同じ位置に入れる。
+  DoneLogId _insertLog(ItemId id, DateTime doneAt) {
+    final logs = _doneLogs[id] ??= <_FakeDoneLog>[];
+    final log = _FakeDoneLog(DoneLogId('fake-log-${_logSequence++}'), doneAt);
+    final index = logs.indexWhere((e) => !e.doneAt.isAfter(doneAt));
+    logs.insert(index < 0 ? logs.length : index, log);
+    return log.id;
+  }
+
+  @override
+  Future<DoneLogId?> addDoneLog(
+    ItemId id,
+    DateTime doneAt, {
+    required DateTime now,
+  }) async {
+    _failIfConfigured();
+    if (!_items.any((item) => item.id == id)) {
+      return null;
+    }
+    final logId = _insertLog(id, _normalize(doneAt));
+    _update(
+      id,
+      (item) => _copy(
+        item,
+        lastDoneAt: _doneLogs[id]!.first.doneAt,
+        updatedAt: _normalize(now),
+      ),
+    );
+    return logId;
+  }
+
+  @override
+  Future<void> removeDoneLog(
+    ItemId id,
+    DoneLogId logId, {
+    required DateTime now,
+  }) async {
+    _failIfConfigured();
+    final logs = _doneLogs[id];
+    logs?.removeWhere((e) => e.id == logId);
+    _update(
+      id,
+      (item) => _copy(
+        item,
+        lastDoneAt: logs == null || logs.isEmpty ? null : logs.first.doneAt,
         updatedAt: _normalize(now),
       ),
     );
@@ -183,13 +235,15 @@ final class FakeItemRepository implements ItemRepository {
       });
     return List<Item>.unmodifiable(
       sorted.map((item) {
-        final logs = _doneLogs[item.id] ?? const <DateTime>[];
+        final logs = _doneLogs[item.id] ?? const <_FakeDoneLog>[];
         final recentDoneAts = logs.length <= recentDoneAtsLimit
             ? logs
             : logs.sublist(0, recentDoneAtsLimit);
         return _copy(
           item,
-          recentDoneAts: List<DateTime>.unmodifiable(recentDoneAts),
+          recentDoneAts: List<DateTime>.unmodifiable(
+            recentDoneAts.map((e) => e.doneAt),
+          ),
         );
       }),
     );
@@ -232,3 +286,11 @@ final class FakeItemRepository implements ItemRepository {
 
 /// 「引数が渡されなかった」を `null` と区別するための番兵。
 const Object _unset = Object();
+
+/// フェイクの履歴 1 行。実装の done_logs の行に相当する。
+final class _FakeDoneLog {
+  const _FakeDoneLog(this.id, this.doneAt);
+
+  final DoneLogId id;
+  final DateTime doneAt;
+}

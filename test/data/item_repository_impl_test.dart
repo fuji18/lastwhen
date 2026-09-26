@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/data/category_repository_impl.dart';
@@ -27,6 +27,27 @@ void main() {
     setUp(() {
       db = _createDatabase();
       repository = ItemRepositoryImpl(db);
+    });
+
+    test('addDoneLog は返した ID で履歴を 1 行保存する', () async {
+      final item = await repository.add('項目', now: t0);
+      final logId = await repository.addDoneLog(item.id, t0, now: t2);
+      final row = await db
+          .customSelect('SELECT id, done_at FROM done_logs')
+          .getSingle();
+      expect(logId, isNotNull);
+      expect(row.read<String>('id'), logId!.value);
+      expect(row.read<int>('done_at'), t0.millisecondsSinceEpoch);
+    });
+
+    test('removeDoneLog は同時刻の履歴でも指定 ID の行だけ消す', () async {
+      final item = await repository.add('項目', now: t0);
+      final first = await repository.addDoneLog(item.id, t0, now: t1);
+      final second = await repository.addDoneLog(item.id, t0, now: t2);
+      await repository.removeDoneLog(item.id, first!, now: t2);
+      final rows = await db.customSelect('SELECT id FROM done_logs').get();
+      expect(rows, hasLength(1));
+      expect(rows.single.read<String>('id'), second!.value);
     });
 
     test('日時は整数で保存される', () async {
@@ -222,6 +243,87 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
 
     setUp(() {
       repository = create();
+    });
+
+    test('未実施の項目に過去日で記録すると最終実施日になる', () async {
+      final item = await repository.add('項目', now: t0);
+      final logId = await repository.addDoneLog(item.id, t0, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(logId, isNotNull);
+      expect(updated.lastDoneAt, t0);
+      expect(updated.updatedAt, t2);
+      expect(updated.recentDoneAts, [t0]);
+    });
+
+    test('最新より古い日で記録しても最終実施日は動かない', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      await repository.addDoneLog(item.id, t0, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, t1);
+      expect(updated.updatedAt, t2);
+      expect(updated.recentDoneAts, [t1, t0]);
+    });
+
+    test('最新より新しい日で記録すると最終実施日が進む', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t0);
+      await repository.addDoneLog(item.id, t1, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, t1);
+      expect(updated.recentDoneAts, [t1, t0]);
+    });
+
+    test('過去日の記録を取り消すと追加した 1 行だけ消える', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t1);
+      final logId = await repository.addDoneLog(item.id, t0, now: t2);
+      await repository.removeDoneLog(item.id, logId!, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, t1);
+      expect(updated.recentDoneAts, [t1]);
+      expect(updated.updatedAt, t2);
+    });
+
+    test('最新だった過去日の記録を取り消すと直前の最大値に戻る', () async {
+      final item = await repository.add('項目', now: t0);
+      await repository.markDone(item.id, t0);
+      final logId = await repository.addDoneLog(item.id, t1, now: t2);
+      await repository.removeDoneLog(item.id, logId!, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, t0);
+      expect(updated.recentDoneAts, [t0]);
+    });
+
+    test('唯一の記録を取り消すと未実施に戻る', () async {
+      final item = await repository.add('項目', now: t0);
+      final logId = await repository.addDoneLog(item.id, t0, now: t2);
+      await repository.removeDoneLog(item.id, logId!, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, isNull);
+      expect(updated.recentDoneAts, isEmpty);
+    });
+
+    test('過去日の記録のあとの「やった」の取り消しは「やった」の行を消す', () async {
+      final item = await repository.add('項目', now: t0);
+      final past = t0.subtract(const Duration(days: 1));
+      await repository.markDone(item.id, t0);
+      await repository.addDoneLog(item.id, past, now: t1);
+      await repository.markDone(item.id, t2);
+      await repository.restoreLastDoneAt(item.id, t0, now: t2);
+      final updated = (await repository.watchAll().first).single;
+      expect(updated.lastDoneAt, t0);
+      expect(updated.recentDoneAts, [t0, past]);
+    });
+
+    test('存在しない項目への addDoneLog と removeDoneLog は他項目に影響しない', () async {
+      final item = await repository.add('項目', now: t0);
+      final logId = await repository.addDoneLog(item.id, t0, now: t1);
+      final before = await repository.watchAll().first;
+      const missing = ItemId('missing');
+      expect(await repository.addDoneLog(missing, t1, now: t2), isNull);
+      await repository.removeDoneLog(missing, logId!, now: t2);
+      expect(await repository.watchAll().first, before);
     });
 
     test('追加すると未実施の項目が登録順に並ぶ', () async {

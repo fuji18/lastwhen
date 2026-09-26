@@ -190,6 +190,70 @@ ORDER BY item_id, done_at DESC, rn
       );
     });
   }
+
+  @override
+  Future<DoneLogId?> addDoneLog(
+    ItemId id,
+    DateTime doneAt, {
+    required DateTime now,
+  }) {
+    // 項目の存在確認・done_logs への追加・last_done_at の同期を同じトランザクションに入れる。
+    return _db.transaction(() async {
+      final exists = await (_db.select(
+        _db.items,
+      )..where((t) => t.id.equals(id.value))).getSingleOrNull();
+      // 対象が無い(= 削除と同時操作)なら書かない。存在しない item_id への INSERT は
+      // 外部キー制約違反になる。
+      if (exists == null) {
+        return null;
+      }
+      final logId = _uuid.v4();
+      await _db
+          .into(_db.doneLogs)
+          .insert(
+            DoneLogRow(
+              id: logId,
+              itemId: id.value,
+              doneAt: _toEpochMillis(doneAt),
+            ),
+          );
+      await _syncLastDoneAt(id, now: now);
+      return DoneLogId(logId);
+    });
+  }
+
+  @override
+  Future<void> removeDoneLog(
+    ItemId id,
+    DoneLogId logId, {
+    required DateTime now,
+  }) async {
+    await _db.transaction(() async {
+      await (_db.delete(
+            _db.doneLogs,
+          )..where((t) => t.id.equals(logId.value) & t.itemId.equals(id.value)))
+          .go();
+      await _syncLastDoneAt(id, now: now);
+    });
+  }
+
+  /// last_done_at を done_logs の最大値(無ければ NULL)に揃え、updated_at を [now] にする。
+  ///
+  /// `updates: {_db.items}` を渡して watchAll の購読に変更を通知させる。
+  Future<void> _syncLastDoneAt(ItemId id, {required DateTime now}) async {
+    await _db.customUpdate(
+      'UPDATE items SET '
+      'last_done_at = (SELECT MAX(done_at) FROM done_logs WHERE item_id = ?), '
+      'updated_at = ? '
+      'WHERE id = ?',
+      variables: [
+        Variable.withString(id.value),
+        Variable.withInt(_toEpochMillis(now)),
+        Variable.withString(id.value),
+      ],
+      updates: {_db.items},
+    );
+  }
 }
 
 /// ドメインの日時を保存形式(UTC のエポックミリ秒)へ変換する。

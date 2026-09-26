@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Material 標準部品(showDatePicker など)の日本語化(#49)。SDK 同梱
+  flutter_localizations:
+    sdk: flutter
 
   # ローカル DB(#4 で使う)
   drift: ^2.35.0

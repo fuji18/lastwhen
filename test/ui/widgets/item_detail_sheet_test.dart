@@ -29,10 +29,18 @@ ItemView _view({
   icon: icon,
 );
 
-Widget _app(ItemView item, {VoidCallback? onEditPressed}) => MaterialApp(
+Widget _app(
+  ItemView item, {
+  VoidCallback? onEditPressed,
+  VoidCallback? onRecordPastDatePressed,
+}) => MaterialApp(
   theme: AppTheme.light(),
   home: Scaffold(
-    body: ItemDetailSheet(item: item, onEditPressed: onEditPressed ?? () {}),
+    body: ItemDetailSheet(
+      item: item,
+      onEditPressed: onEditPressed ?? () {},
+      onRecordPastDatePressed: onRecordPastDatePressed ?? () {},
+    ),
   ),
 );
 
@@ -145,7 +153,7 @@ void main() {
         of: find.byType(ItemDetailSheet),
         matching: find.byType(Text),
       ),
-      findsNWidgets(5),
+      findsNWidgets(6),
     );
     expect(find.textContaining('7.0'), findsNothing);
     expect(find.textContaining('平均'), findsNothing);
@@ -164,6 +172,23 @@ void main() {
     await tester.pumpWidget(_app(_view(), onEditPressed: () => calls++));
     await tester.tap(find.text('編集'));
     expect(calls, 1);
+  });
+
+  testWidgets('日付を指定して記録ボタンはコールバックを1回呼ぶ', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(
+      _app(_view(), onRecordPastDatePressed: () => calls++),
+    );
+    expect(find.text('日付を指定して記録'), findsOneWidget);
+    await tester.tap(find.text('日付を指定して記録'));
+    expect(calls, 1);
+  });
+
+  testWidgets('未実施の項目でも日付を指定して記録できる', (tester) async {
+    await tester.pumpWidget(
+      _app(_view(elapsed: const NeverDone(), lastDoneText: null)),
+    );
+    expect(find.text('日付を指定して記録'), findsOneWidget);
   });
 
   testWidgets('各行を独立して読み上げ、項目名を見出しにする', (tester) async {

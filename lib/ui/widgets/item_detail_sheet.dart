@@ -31,6 +31,7 @@ class ItemDetailSheet extends StatelessWidget {
   const ItemDetailSheet({
     required this.item,
     required this.onEditPressed,
+    required this.onRecordPastDatePressed,
     super.key,
   });
 
@@ -39,6 +40,9 @@ class ItemDetailSheet extends StatelessWidget {
 
   /// 「編集」ボタンのタップ時の処理。
   final VoidCallback onEditPressed;
+
+  /// 「日付を指定して記録」のタップ時の処理。
+  final VoidCallback onRecordPastDatePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -92,13 +96,22 @@ class ItemDetailSheet extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.tonalIcon(
-                onPressed: onEditPressed,
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('編集'),
-              ),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: onRecordPastDatePressed,
+                  icon: const Icon(Icons.edit_calendar_outlined),
+                  label: const Text('日付を指定して記録'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: onEditPressed,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('編集'),
+                ),
+              ],
             ),
           ],
         ),

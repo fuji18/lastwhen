@@ -6,6 +6,9 @@ import 'item_icon.dart';
 /// `rename(name, id)` のような引数の取り違えがコンパイルエラーになる。
 extension type const ItemId(String value) {}
 
+/// 実施履歴 1 行の ID。取り消しで「追加した 1 行」を指すために使う(#49)。
+extension type const DoneLogId(String value) {}
+
 /// 管理する生活行動 1 件。
 final class Item {
   const Item({

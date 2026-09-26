@@ -249,6 +249,20 @@ void main() {
     });
   });
 
+  testWidgets('図鑑から開いた詳細シートに日付を指定して記録の入口がある', (tester) async {
+    await pumpItems(tester);
+    await _openCollection(tester);
+    await tester.tap(find.widgetWithText(CollectionCard, '美容院'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ItemDetailSheet),
+        matching: find.text('日付を指定して記録'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('カードをタップすると詳細シートが開く', (tester) async {
     await pumpItems(tester);
     await _openCollection(tester);
