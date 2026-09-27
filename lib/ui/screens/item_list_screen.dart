@@ -10,11 +10,13 @@ import '../../state/category_list_notifier.dart';
 import '../../state/mark_done_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
+import '../../state/item_sort_order.dart';
 import '../item_navigation.dart';
 import '../widgets/category_filter_bar.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/item_card.dart';
+import '../widgets/item_sort_menu_button.dart';
 import '../widgets/load_error.dart';
 import 'category_manage_screen.dart';
 import 'item_add_screen.dart';
@@ -61,8 +63,17 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LastWhen'),
+        // 並び順とカテゴリ管理の 2 ボタンで、文字サイズ 150% 以上だと幅が足りず省略される。
+        // タイトルはブランド表記なので、足りないときだけ縮める(判断H)。
+        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('LastWhen')),
         actions: [
+          // 追加の FAB と同じ条件で出す。空状態・読み込み中・失敗では並べるものが無い。
+          if (hasItems)
+            ItemSortMenuButton(
+              selected: ref.watch(itemSortOrderProvider),
+              onSelected: (order) =>
+                  ref.read(itemSortOrderProvider.notifier).select(order),
+            ),
           IconButton(
             icon: const Icon(Icons.label_outline),
             tooltip: 'カテゴリを管理',
