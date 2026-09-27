@@ -50,6 +50,11 @@ dependencies:
   # (docs/architecture.md「依存関係管理」)
   intl: any
 
+  # ローカル通知の予約(F11 / #51)
+  flutter_local_notifications: ^22.3.1
+  # zonedSchedule が要求する TZDateTime(#51)
+  timezone: ^0.11.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
