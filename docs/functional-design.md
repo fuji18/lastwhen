@@ -624,6 +624,27 @@ stateDiagram-v2
 
 ### 色の使い方
 
+#### 配色(#55)
+
+画面イメージ(`docs/ideas/LastWhen_gamen.png`)のクリーム地・テラコッタ・焦げ茶に合わせる。
+テラコッタ `#B45A3A` をシードに `ColorScheme.fromSeed`(`tonalSpot`)で全ロールを生成し、下表のロールだけを上書きする。
+ダークは画面イメージに無いため、同じ色相の焦げ茶地・クリーム文字・明るいテラコッタで組む。
+青系の色相(180°〜260°)のロールが無いこと、アイコン・枠線(`primary` / `outline`)が全 surface 系に対して 3:1 以上であることをテストで検査する。
+
+| ロール | light | dark | 主な用途 |
+| --- | --- | --- | --- |
+| `primary` / `onPrimary` | `#B45A3A` / `#FFFFFF` | `#E8A184` / `#4A1A08` | FAB(テラコッタ塗り)・保存ボタン・強調 |
+| `primaryContainer` / `onPrimaryContainer` | `#F6D9CB` / `#6E2F18` | `#7A3620` / `#FFDBCF` | |
+| `secondaryContainer` / `onSecondaryContainer` | `#EFD9C7` / `#4F3526` | `#5E3A2C` / `#F6D9CB` | やったボタン・選択中のチップ・ナビのインジケータ |
+| `surface` | `#F3E8D6` | `#1C1714` | 画面の地 |
+| `onSurface` / `onSurfaceVariant` | `#261B14` / `#524134` | `#F0E3D3` / `#D6C5B2` | 本文 / 補助文字 |
+| `surfaceContainerLowest`〜`Highest` | `#FFFBF5` `#FAF4EA` `#F8F1E6` `#EFE3D0` `#E9DCC7` | `#161210` `#221C18` `#27201B` `#312924` `#3C332D` | ナビの地(`surfaceContainer`)・ダイアログ(`High`) |
+| `outline` / `outlineVariant` | `#85735F` / `#D9C9B2` | `#A08C7A` / `#4E4238` | 枠線 / 区切り線 |
+
+紙の色(`AgingPalette`)は同じクリーム〜黄土の系統で、この配色の上でそのまま使う(値は変えない)。
+
+#### 経年ステージ
+
 状態は相対経過度(経過日数 ÷ 基準間隔)による**経年ステージ**で表す(F28 / Issue #21)。
 **境界は下側を含む**(0.5 は「少し経過」)。相対経過度が **null は真新しいと同じ描画**で、絶対日数で代用しない。
 

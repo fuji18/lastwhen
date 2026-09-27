@@ -166,7 +166,7 @@
 |------|---------|
 | UI フレームワーク | **Flutter**(Dart)。iOS / Android の単一コードベース |
 | コンポーネントライブラリ | **Material 3(Flutter 組み込み)**。`useMaterial3: true` を既定とし、**自前ウィジェットは Material の組み合わせで表現できないときだけ書く**。追加の UI パッケージは入れない |
-| デザイントークンの実装形式 | **`ThemeData` + `ColorScheme.fromSeed`**。色・タイポ・角丸・余白はすべて `Theme.of(context)` 経由で参照し、ウィジェット内に生の値を書かない。シード色は 1 つだけ定義し、light / dark を同じシードから生成する |
+| デザイントークンの実装形式 | **`ThemeData` + `ColorScheme.fromSeed` + ロールの上書き**。色・タイポ・角丸・余白はすべて `Theme.of(context)` 経由で参照し、ウィジェット内に生の値を書かない。テラコッタのシード色 1 つから light / dark の全ロールを生成し、画面イメージ(`docs/ideas/LastWhen_gamen.png`)に効くロール(地・文字・primary・container・outline)だけを `copyWith` で上書きする。値は `docs/functional-design.md`「色の使い方」の配色表が正(#55) |
 | アイコン | **Material Symbols**(`Icons.*`。Flutter 同梱で追加依存ゼロ) |
 | 参照デザイン(トーン) | ミニマル。情報量を削り、**「何日前」を画面内で最大の要素にする**。装飾より余白とタイポのコントラストで階層を作る **例外: 経年変化(F28)の紙の装飾は許容する。ただしテキストの可読性は落とさない** |
 
