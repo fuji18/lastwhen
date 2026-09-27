@@ -18,6 +18,7 @@ import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
+import '../support/app_font.dart';
 import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
 import '../support/fake_item_repository.dart';
@@ -114,6 +115,8 @@ final class _FailingRepository implements ItemRepository {
 }
 
 void main() {
+  setUpAll(loadAppFont);
+
   // ローカルの暦日を固定するため、UTC の時差に依存させない。
   final now = DateTime(2026, 9, 16, 12);
   late FakeItemRepository repository;
