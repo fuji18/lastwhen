@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/aging_stage.dart';
+import 'app_fonts.dart';
 
 /// アプリ全体のテーマ。
 ///
@@ -12,7 +13,8 @@ import '../../domain/aging_stage.dart';
 ///
 /// 経年変化(F28)は `AgingPalette` の紙の色と `ItemCard` の形状変化で示す。
 ///
-/// `TextTheme` の実値は一覧の行(#5)を組むときに決める。
+/// 書体は同梱の Zen Maru Gothic([AppFonts])を `fontFamily` で全 `TextTheme` に当てる(#56)。
+/// サイズとウェイトは Material 3 の既定のまま。経過日数の強調(`headlineSmall` + Bold)はウィジェット側で行う。
 abstract final class AppTheme {
   /// テーマのシード色(テラコッタ)。上書きしないロールはここから生成される。
   static const Color seedColor = Color(0xFFB45A3A);
@@ -74,6 +76,7 @@ abstract final class AppTheme {
         : _lightScheme;
     return ThemeData(
       useMaterial3: true,
+      fontFamily: AppFonts.family,
       extensions: [
         if (brightness == Brightness.dark)
           AgingPalette.dark
