@@ -18,15 +18,15 @@
 
 ## フェーズ1: テーマ
 
-- [ ] `lib/ui/theme/app_theme.dart` を design.md §2 のとおり書き換える(シード色・`_lightScheme` / `_darkScheme`・FAB テーマ・doc コメント)
+- [x] `lib/ui/theme/app_theme.dart` を design.md §2 のとおり書き換える(シード色・`_lightScheme` / `_darkScheme`・FAB テーマ・doc コメント)
 
 ## フェーズ2: テスト
 
-- [ ] `test/widget_test.dart` の「同じ 1 つのシード色から生成」テストを §3-1 のとおり差し替える
-- [ ] `test/ui/accessibility_test.dart` のコントラストのペアを §3-2 のとおり更新する
-- [ ] `test/ui/theme/app_theme_test.dart` を新規作成する(§3-3)
+- [x] `test/widget_test.dart` の「同じ 1 つのシード色から生成」テストを §3-1 のとおり差し替える
+- [x] `test/ui/accessibility_test.dart` のコントラストのペアを §3-2 のとおり更新する
+- [x] `test/ui/theme/app_theme_test.dart` を新規作成する(§3-3)
 
 ## フェーズ3: 検証
 
-- [ ] `lib/` に生の色(`Color(0x` / `Colors.`)が `lib/ui/theme/app_theme.dart` 以外に無いことを grep で確認する(§4)
-- [ ] `dart format --output=none --set-exit-if-changed .` / `flutter analyze --fatal-infos` / `flutter test` が通る
+- [x] `lib/` に生の色(`Color(0x` / `Colors.`)が `lib/ui/theme/app_theme.dart` 以外に無いことを grep で確認する(§4)
+- [x] `dart format --output=none --set-exit-if-changed .` / `flutter analyze --fatal-infos` / `flutter test` が通る

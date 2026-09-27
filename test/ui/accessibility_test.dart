@@ -144,11 +144,13 @@ void main() {
           '補助文字': (colors.onSurfaceVariant, colors.surface),
           'やった': (colors.onSecondaryContainer, colors.secondaryContainer),
           '保存': (colors.onPrimary, colors.primary),
-          'FAB': (colors.onPrimaryContainer, colors.primaryContainer),
+          'FAB': (colors.onPrimary, colors.primary),
           '削除': (colors.error, colors.surface),
           'ダイアログ': (colors.onSurface, colors.surfaceContainerHigh),
           'SnackBar': (colors.onInverseSurface, colors.inverseSurface),
           'SnackBar アクション': (colors.inversePrimary, colors.inverseSurface),
+          'ナビの文字': (colors.onSurfaceVariant, colors.surfaceContainer),
+          'チップの文字': (colors.onSurfaceVariant, colors.surfaceContainerLow),
         };
         for (final entry in pairs.entries) {
           final a = luminance(entry.value.$1);

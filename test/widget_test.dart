@@ -34,17 +34,14 @@ void main() {
     expect(app.darkTheme?.useMaterial3, isTrue);
   });
 
-  test('light と dark が同じ 1 つのシード色から生成されている', () {
-    expect(
-      AppTheme.light().colorScheme,
-      ColorScheme.fromSeed(seedColor: AppTheme.seedColor),
-    );
-    expect(
-      AppTheme.dark().colorScheme,
-      ColorScheme.fromSeed(
-        seedColor: AppTheme.seedColor,
-        brightness: Brightness.dark,
-      ),
-    );
+  test('light と dark の primary がシード色と同じ色相(テラコッタ)', () {
+    final seedHue = HSLColor.fromColor(AppTheme.seedColor).hue;
+    for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+      expect(
+        HSLColor.fromColor(theme.colorScheme.primary).hue,
+        closeTo(seedHue, 5),
+        reason: '${theme.brightness}',
+      );
+    }
   });
 }
