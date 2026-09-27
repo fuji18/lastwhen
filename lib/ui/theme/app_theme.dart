@@ -15,6 +15,9 @@ import 'app_fonts.dart';
 ///
 /// 書体は同梱の Zen Maru Gothic([AppFonts])を `fontFamily` で全 `TextTheme` に当てる(#56)。
 /// サイズとウェイトは Material 3 の既定のまま。経過日数の強調(`headlineSmall` + Bold)はウィジェット側で行う。
+///
+/// 画面の地は `PaperBackground` が塗る。新しいルートの根には必ず `PaperBackground` を置く
+/// (`Scaffold` の背景は透明)。
 abstract final class AppTheme {
   /// テーマのシード色(テラコッタ)。上書きしないロールはここから生成される。
   static const Color seedColor = Color(0xFFB45A3A);
@@ -89,6 +92,16 @@ abstract final class AppTheme {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
       ),
+      // 画面の地は各ルートの根の PaperBackground が塗る(紙の繊維を敷くため)。
+      scaffoldBackgroundColor: Colors.transparent,
+      appBarTheme: AppBarTheme(
+        // 紙の地を AppBar の裏まで見せ、内容が下に潜ったときだけ不透明にする。
+        backgroundColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.scrolledUnder)
+              ? colorScheme.surfaceContainer
+              : Colors.transparent,
+        ),
+      ),
     );
   }
 }
@@ -100,6 +113,7 @@ final class AgingPaperColors {
     required this.paper,
     required this.edge,
     required this.stain,
+    required this.burn,
   });
 
   /// 紙の面。テキストはこの上に載る。
@@ -111,6 +125,9 @@ final class AgingPaperColors {
   /// シミ(半透明)。紙の上に重ねる。
   final Color stain;
 
+  /// 縁の焼け。縁から内側へぼかして重ねる(不透明度は描画側で掛ける)。
+  final Color burn;
+
   /// テーマ遷移時に紙と装飾の色を補間する。
   static AgingPaperColors lerp(
     AgingPaperColors a,
@@ -120,6 +137,7 @@ final class AgingPaperColors {
     paper: Color.lerp(a.paper, b.paper, t)!,
     edge: Color.lerp(a.edge, b.edge, t)!,
     stain: Color.lerp(a.stain, b.stain, t)!,
+    burn: Color.lerp(a.burn, b.burn, t)!,
   );
 
   @override
@@ -127,10 +145,11 @@ final class AgingPaperColors {
       other is AgingPaperColors &&
       other.paper == paper &&
       other.edge == edge &&
-      other.stain == stain;
+      other.stain == stain &&
+      other.burn == burn;
 
   @override
-  int get hashCode => Object.hash(paper, edge, stain);
+  int get hashCode => Object.hash(paper, edge, stain, burn);
 }
 
 /// 経年ステージごとの紙の色。
@@ -152,27 +171,32 @@ final class AgingPalette extends ThemeExtension<AgingPalette> {
     fresh: AgingPaperColors(
       paper: Color(0xFFFBF8F1),
       edge: Color(0xFFE3DACA),
-      stain: Color(0x298B6A2E),
+      stain: Color(0x1A8B6A2E),
+      burn: Color(0xFFD8CBB0),
     ),
     slightlyAged: AgingPaperColors(
       paper: Color(0xFFF6EFDF),
       edge: Color(0xFFD8C9A8),
-      stain: Color(0x298B6A2E),
+      stain: Color(0x1A8B6A2E),
+      burn: Color(0xFFC8B185),
     ),
     dueSoon: AgingPaperColors(
       paper: Color(0xFFF0E3C4),
       edge: Color(0xFFC9B283),
-      stain: Color(0x298B6A2E),
+      stain: Color(0x1A8B6A2E),
+      burn: Color(0xFFB08A4E),
     ),
     aged: AgingPaperColors(
       paper: Color(0xFFE8D5AC),
       edge: Color(0xFFB4945C),
-      stain: Color(0x298B6A2E),
+      stain: Color(0x1A8B6A2E),
+      burn: Color(0xFF8E6A35),
     ),
     heavilyAged: AgingPaperColors(
       paper: Color(0xFFDDC393),
       edge: Color(0xFF97773F),
-      stain: Color(0x298B6A2E),
+      stain: Color(0x1A8B6A2E),
+      burn: Color(0xFF6E4E24),
     ),
   );
 
@@ -181,27 +205,32 @@ final class AgingPalette extends ThemeExtension<AgingPalette> {
     fresh: AgingPaperColors(
       paper: Color(0xFF1E1C18),
       edge: Color(0xFF3A342A),
-      stain: Color(0x29C9A461),
+      stain: Color(0x1AC9A461),
+      burn: Color(0xFF3A342A),
     ),
     slightlyAged: AgingPaperColors(
       paper: Color(0xFF26221B),
       edge: Color(0xFF4A4030),
-      stain: Color(0x29C9A461),
+      stain: Color(0x1AC9A461),
+      burn: Color(0xFF4A4030),
     ),
     dueSoon: AgingPaperColors(
       paper: Color(0xFF2F291E),
       edge: Color(0xFF5A4A33),
-      stain: Color(0x29C9A461),
+      stain: Color(0x1AC9A461),
+      burn: Color(0xFF5A4A33),
     ),
     aged: AgingPaperColors(
       paper: Color(0xFF3A3021),
       edge: Color(0xFF6E5A3A),
-      stain: Color(0x29C9A461),
+      stain: Color(0x1AC9A461),
+      burn: Color(0xFF6E5A3A),
     ),
     heavilyAged: AgingPaperColors(
       paper: Color(0xFF463924),
       edge: Color(0xFF806640),
-      stain: Color(0x29C9A461),
+      stain: Color(0x1AC9A461),
+      burn: Color(0xFF806640),
     ),
   );
 

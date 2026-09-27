@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -66,5 +67,27 @@ void main() {
         }
       });
     }
+  }
+  for (final size in [const Size(10, 10), Size.zero]) {
+    test('paintPaperFibers は $size に例外なく描画できる', () {
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      try {
+        expect(
+          () => paintPaperFibers(
+            canvas,
+            size,
+            math.Random(1),
+            fibersPer1000: 1.5,
+            specksPer1000: 1.0,
+            fiberColor: const Color(0xFF000000),
+            speckColor: const Color(0xFF000000),
+          ),
+          returnsNormally,
+        );
+      } finally {
+        recorder.endRecording().dispose();
+      }
+    });
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
+import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../../support/fake_category_repository.dart';
 import '../../support/fake_item_repository.dart';
@@ -29,6 +30,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('健康'), findsOneWidget);
     expect(find.text('趣味'), findsOneWidget);
+  });
+
+  testWidgets('管理画面の根に PaperBackground がある', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.byType(PaperBackground), findsOneWidget);
   });
 
   testWidgets('0件なら専用の文言が出る', (tester) async {
