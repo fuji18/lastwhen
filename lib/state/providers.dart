@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/category_repository_impl.dart';
 import '../data/database/app_database.dart';
 import '../data/item_repository_impl.dart';
+import '../data/local_notification_scheduler.dart';
 import '../domain/category_repository.dart';
 import '../domain/clock.dart';
 import '../domain/item_repository.dart';
+import '../domain/notification_scheduler.dart';
 
 /// アプリ全体で 1 つの [AppDatabase]。**DB を開く唯一の場所。**
 ///
@@ -32,3 +34,8 @@ final categoryRepositoryProvider = Provider<CategoryRepository>(
 
 /// 現在時刻の供給元。テストは `FakeClock` に差し替える。
 final clockProvider = Provider<Clock>((ref) => const SystemClock());
+
+/// 通知の予約。テストは `FakeNotificationScheduler` に差し替える。
+final notificationSchedulerProvider = Provider<NotificationScheduler>(
+  (ref) => LocalNotificationScheduler(),
+);

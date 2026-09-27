@@ -54,6 +54,8 @@ domain/
 ├── elapsed_days.dart         # 経過日数の算出と ElapsedLabel
 ├── baseline_interval.dart    # 実施履歴から基準間隔を算出する
 ├── aging_stage.dart          # 相対経過度から経年ステージを判定する
+├── notification_plan.dart    # どの項目をいつ通知するかを決める純関数(F11)
+├── notification_scheduler.dart # 通知の予約のインターフェース(実装は data/ に置く)
 └── clock.dart                # Clock 抽象と SystemClock 実装
 ```
 
@@ -76,10 +78,11 @@ data/
 ├── migrations/
 │   └── migrations.dart          # MigrationStrategy
 ├── item_repository_impl.dart    # ItemRepository の Drift 実装
-└── category_repository_impl.dart # CategoryRepository の Drift 実装
+├── category_repository_impl.dart # CategoryRepository の Drift 実装
+└── local_notification_scheduler.dart # NotificationScheduler の flutter_local_notifications 実装(F11)
 ```
 
-- **依存してよいもの**: `domain/`、Drift、`path_provider`
+- **依存してよいもの**: `domain/`、Drift、`path_provider`、`flutter_local_notifications`・`timezone`(通知の予約のみ)
 - **依存してはいけないもの**: `state/`、`ui/`、Flutter のウィジェット
 - **`database/` と `migrations/` は Codex への委託禁止領域**(`AGENTS.md` §4)
 
@@ -94,6 +97,7 @@ state/
 ├── category_list_notifier.dart # カテゴリ一覧の状態と操作
 ├── category_filter.dart        # 一覧のカテゴリ絞り込み
 ├── collection.dart             # 図鑑に載せる項目と図鑑の絞り込み
+├── notification_sync.dart      # 項目の変化に追従して通知の予約を張り直す(F11)
 ├── add_item_result.dart        # 操作結果の型(例外を投げずに分岐を返す)
 ├── edit_item_result.dart       #   〃
 ├── mark_done_result.dart       #   〃
