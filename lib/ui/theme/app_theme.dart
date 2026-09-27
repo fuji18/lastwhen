@@ -4,20 +4,18 @@ import '../../domain/aging_stage.dart';
 
 /// アプリ全体のテーマ。
 ///
-/// 基本色は **1 つのシード色**から light / dark の両方を生成する
-/// (`docs/ui-design-guidelines.md` §7)。ウィジェット側に生の色・余白・
-/// タイポの値を書かず、必ず `Theme.of(context)` 経由で参照すること。
+/// 配色は画面イメージ(`docs/ideas/LastWhen_gamen.png`)のクリーム地・テラコッタ・焦げ茶。
+/// テラコッタのシード色から `ColorScheme.fromSeed` で全ロールを生成し、
+/// 画面イメージに効くロール(地・文字・primary など)だけを上書きする
+/// (`docs/ui-design-guidelines.md` §7 / `docs/functional-design.md`「色の使い方」)。
+/// ウィジェット側に生の色・余白・タイポの値を書かず、必ず `Theme.of(context)` 経由で参照すること。
 ///
-/// P1 の経年変化(F28)は `AgingPalette` の紙の色と `ItemCard` の形状変化で示す。
-/// シードの青は紙に使わない。
+/// 経年変化(F28)は `AgingPalette` の紙の色と `ItemCard` の形状変化で示す。
 ///
 /// `TextTheme` の実値は一覧の行(#5)を組むときに決める。
 abstract final class AppTheme {
-  /// テーマのシード色。
-  ///
-  /// 経年変化(F28)は `AgingPalette` の紙の色と `ItemCard` の形状変化で示す。
-  /// シードの青は紙に使わない。
-  static const Color seedColor = Color(0xFF2F6690);
+  /// テーマのシード色(テラコッタ)。上書きしないロールはここから生成される。
+  static const Color seedColor = Color(0xFFB45A3A);
 
   /// ライトテーマ。
   static ThemeData light() => _build(Brightness.light);
@@ -25,19 +23,71 @@ abstract final class AppTheme {
   /// ダークテーマ。
   static ThemeData dark() => _build(Brightness.dark);
 
-  static ThemeData _build(Brightness brightness) => ThemeData(
-    useMaterial3: true,
-    extensions: [
-      if (brightness == Brightness.dark)
-        AgingPalette.dark
-      else
-        AgingPalette.light,
-    ],
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: seedColor,
-      brightness: brightness,
-    ),
-  );
+  static final ColorScheme _lightScheme =
+      ColorScheme.fromSeed(seedColor: seedColor).copyWith(
+        primary: const Color(0xFFB45A3A),
+        onPrimary: const Color(0xFFFFFFFF),
+        surfaceTint: const Color(0xFFB45A3A),
+        primaryContainer: const Color(0xFFF6D9CB),
+        onPrimaryContainer: const Color(0xFF6E2F18),
+        secondaryContainer: const Color(0xFFEFD9C7),
+        onSecondaryContainer: const Color(0xFF4F3526),
+        surface: const Color(0xFFF3E8D6),
+        onSurface: const Color(0xFF261B14),
+        onSurfaceVariant: const Color(0xFF524134),
+        surfaceContainerLowest: const Color(0xFFFFFBF5),
+        surfaceContainerLow: const Color(0xFFFAF4EA),
+        surfaceContainer: const Color(0xFFF8F1E6),
+        surfaceContainerHigh: const Color(0xFFEFE3D0),
+        surfaceContainerHighest: const Color(0xFFE9DCC7),
+        outline: const Color(0xFF85735F),
+        outlineVariant: const Color(0xFFD9C9B2),
+      );
+
+  static final ColorScheme _darkScheme =
+      ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.dark,
+      ).copyWith(
+        primary: const Color(0xFFE8A184),
+        onPrimary: const Color(0xFF4A1A08),
+        surfaceTint: const Color(0xFFE8A184),
+        primaryContainer: const Color(0xFF7A3620),
+        onPrimaryContainer: const Color(0xFFFFDBCF),
+        secondaryContainer: const Color(0xFF5E3A2C),
+        onSecondaryContainer: const Color(0xFFF6D9CB),
+        surface: const Color(0xFF1C1714),
+        onSurface: const Color(0xFFF0E3D3),
+        onSurfaceVariant: const Color(0xFFD6C5B2),
+        surfaceContainerLowest: const Color(0xFF161210),
+        surfaceContainerLow: const Color(0xFF221C18),
+        surfaceContainer: const Color(0xFF27201B),
+        surfaceContainerHigh: const Color(0xFF312924),
+        surfaceContainerHighest: const Color(0xFF3C332D),
+        outline: const Color(0xFFA08C7A),
+        outlineVariant: const Color(0xFF4E4238),
+      );
+
+  static ThemeData _build(Brightness brightness) {
+    final colorScheme = brightness == Brightness.dark
+        ? _darkScheme
+        : _lightScheme;
+    return ThemeData(
+      useMaterial3: true,
+      extensions: [
+        if (brightness == Brightness.dark)
+          AgingPalette.dark
+        else
+          AgingPalette.light,
+      ],
+      colorScheme: colorScheme,
+      // 画面イメージの ＋ ボタンはテラコッタ塗り。M3 既定の primaryContainer では淡色になる。
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
+    );
+  }
 }
 
 /// 1 つの経年ステージの紙の色。
