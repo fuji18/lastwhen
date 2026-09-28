@@ -9,6 +9,7 @@ import 'package:lastwhen/domain/item.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/add_item_result.dart';
+import 'package:lastwhen/state/delete_history_day_result.dart';
 import 'package:lastwhen/state/edit_item_result.dart';
 import 'package:lastwhen/state/collection.dart';
 import 'package:lastwhen/state/item_order.dart';
@@ -503,6 +504,124 @@ void main() {
       expect(today, dateDaysAgo(0));
       expect(today.isUtc, isFalse);
       expect(today.hour, 0);
+    });
+  });
+
+  group('deleteHistoryDay / undoDeleteHistoryDay', () {
+    late ItemId id;
+    late ProviderContainer container;
+    late ItemListNotifier notifier;
+    late ItemView before;
+    setUp(() async {
+      id = (await repository.add('美容院', now: now)).id;
+      for (final day in [5, 12, 15]) {
+        await repository.addDoneLog(
+          id,
+          DateTime(2026, 9, day, 12).toUtc(),
+          now: now,
+        );
+      }
+      container = _container(repository, FakeClock(now));
+      before = (await container.read(itemListProvider.future)).single;
+      await Future<void>.delayed(Duration.zero);
+      notifier = container.read(itemListProvider.notifier);
+    });
+    Future<ItemView> current() async {
+      await Future<void>.delayed(Duration.zero);
+      return container.read(itemListProvider).requireValue.single;
+    }
+
+    test('真ん中の暦日を消すと次の emit でその行が消える', () async {
+      expect(
+        await notifier.deleteHistoryDay(id, before.history[1].dayKey),
+        isA<DeleteHistoryDaySucceeded>(),
+      );
+      expect((await current()).history.map((e) => e.dateText), [
+        '2026年9月15日',
+        '2026年9月5日',
+      ]);
+    });
+    test('同じ暦日の 2 件をまとめて消す', () async {
+      await repository.addDoneLog(
+        id,
+        DateTime(2026, 9, 12, 23).toUtc(),
+        now: now,
+      );
+      await current();
+      final result = await notifier.deleteHistoryDay(
+        id,
+        before.history[1].dayKey,
+      ) as DeleteHistoryDaySucceeded;
+      expect(result.undo.logs, hasLength(2));
+      expect((await current()).history, hasLength(2));
+      expect(
+        (await repository.watchAll().first).single.recentDoneAts,
+        hasLength(2),
+      );
+    });
+    test('最新の日を消すと最終実施日は前の日になり、全件消すと未実施', () async {
+      await notifier.deleteHistoryDay(id, before.history.first.dayKey);
+      expect((await current()).lastDoneText, '2026年9月12日');
+      for (final entry in before.history.skip(1)) {
+        await notifier.deleteHistoryDay(id, entry.dayKey);
+      }
+      expect((await current()).elapsed, isA<NeverDone>());
+      expect((await current()).history, isEmpty);
+    });
+    test('取り消すと履歴と最終実施日が削除前に戻る', () async {
+      final result = await notifier.deleteHistoryDay(
+        id,
+        before.history.first.dayKey,
+      ) as DeleteHistoryDaySucceeded;
+      await current();
+      expect(
+        await notifier.undoDeleteHistoryDay(result.undo),
+        isA<UndoSucceeded>(),
+      );
+      final restored = await current();
+      expect(restored.history, before.history);
+      expect(restored.lastDoneText, before.lastDoneText);
+    });
+    test('一覧に無い ID はリポジトリを呼ばず無視する', () async {
+      repository.writeError = StateError('呼ばれたら失敗');
+      expect(
+        await notifier.deleteHistoryDay(
+          const ItemId('missing'),
+          before.history.first.dayKey,
+        ),
+        isA<DeleteHistoryDayIgnored>(),
+      );
+      expect((await current()).history, before.history);
+    });
+    test('既に消えた日は無視する', () async {
+      final key = before.history.first.dayKey;
+      await notifier.deleteHistoryDay(id, key);
+      await current();
+      expect(
+        await notifier.deleteHistoryDay(id, key),
+        isA<DeleteHistoryDayIgnored>(),
+      );
+    });
+    test('書き込み失敗なら履歴を変えず Failed を返す', () async {
+      repository.writeError = StateError('write failed');
+      expect(
+        await notifier.deleteHistoryDay(id, before.history.first.dayKey),
+        isA<DeleteHistoryDayFailed>(),
+      );
+      expect((await current()).history, before.history);
+    });
+    test('取り消し失敗なら削除後の履歴を保つ', () async {
+      final result = await notifier.deleteHistoryDay(
+        id,
+        before.history.first.dayKey,
+      ) as DeleteHistoryDaySucceeded;
+      final deleted = await current();
+      repository.writeError = StateError('write failed');
+      expect(
+        await notifier.undoDeleteHistoryDay(result.undo),
+        isA<UndoFailed>(),
+      );
+      expect((await current()).history, deleted.history);
     });
   });
 

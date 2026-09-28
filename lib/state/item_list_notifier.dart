@@ -263,6 +263,69 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     }
   }
 
+  /// 記録の履歴から 1 日分(ローカルの暦日)の記録をすべて削除する(#63)。
+  ///
+  /// 確認を取るのは UI の責務。誤りは [undoDeleteHistoryDay] で救う。並びは組み替えない(F30)。
+  Future<DeleteHistoryDayResult> deleteHistoryDay(
+    ItemId id,
+    HistoryDayKey day,
+  ) async {
+    if (!_latestItems.any((item) => item.id == id)) {
+      return const DeleteHistoryDayIgnored();
+    }
+    final date = day.date;
+    // ローカルの 0:00〜翌 0:00。ローカル時刻の DateTime は夏時間の切替日も正しい長さの 1 日になり、
+    // day + 1 は月末・年末で正規化される。
+    final from = DateTime(date.year, date.month, date.day);
+    final to = DateTime(date.year, date.month, date.day + 1);
+    try {
+      final removed = await ref
+          .read(itemRepositoryProvider)
+          .removeDoneLogsBetween(
+            id,
+            from: from,
+            to: to,
+            now: ref.read(clockProvider).now(),
+          );
+      if (removed.isEmpty) {
+        return const DeleteHistoryDayIgnored();
+      }
+      return DeleteHistoryDaySucceeded(
+        DeleteHistoryDayUndo(id: id, logs: removed),
+      );
+    } catch (error, stackTrace) {
+      developer.log(
+        '記録の削除に失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const DeleteHistoryDayFailed();
+    }
+  }
+
+  /// [deleteHistoryDay] を取り消す。消した行を元の日時で戻す。
+  Future<UndoResult> undoDeleteHistoryDay(DeleteHistoryDayUndo undo) async {
+    try {
+      await ref
+          .read(itemRepositoryProvider)
+          .restoreDoneLogs(
+            undo.id,
+            undo.logs,
+            now: ref.read(clockProvider).now(),
+          );
+      return const UndoSucceeded();
+    } catch (error, stackTrace) {
+      developer.log(
+        '記録の削除の取り消しに失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const UndoFailed();
+    }
+  }
+
   /// 項目名・アイコン・カテゴリを変更する。**最終実施日は変わらない**(判断6)。
   ///
   /// 検証は登録と同じ `validateItemName`(`docs/product-requirements.md` F6)。

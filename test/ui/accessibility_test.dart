@@ -185,6 +185,8 @@ void main() {
     }
 
     testWidgets('文字サイズ 200% で記録の詳細が破綻しない', (tester) async {
+      final handle = tester.ensureSemantics();
+      addTearDown(handle.dispose);
       _setScreenSize(tester, height: 320);
       await seedItems();
       await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
@@ -196,6 +198,16 @@ void main() {
       expect(find.text('記録する').hitTestable(), findsOneWidget);
       await tester.ensureVisible(find.text('記録の履歴'));
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      const label = '2026年9月12日の記録を削除';
+      final deleteButton = find.byTooltip(label);
+      await tester.ensureVisible(deleteButton);
+      await tester.pumpAndSettle();
+      expect(deleteButton.hitTestable(), findsOneWidget);
+      expect(
+        tester.getSemantics(deleteButton),
+        containsSemantics(tooltip: label, isButton: true, hasTapAction: true),
+      );
       expect(tester.takeException(), isNull);
     });
 

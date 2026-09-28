@@ -27,6 +27,22 @@ Item _item(
 void main() {
   final now = DateTime.utc(2026, 9, 16, 3);
 
+  test('履歴の短い日付とキーはローカル暦日と一致する', () {
+    final dates = [
+      DateTime(2026, 9, 12, 0, 30).toUtc(),
+      DateTime(2026, 9, 5, 23, 30).toUtc(),
+    ];
+    final view = ItemView.from(
+      _item(dates.first, recentDoneAts: dates),
+      now: now,
+    );
+    expect(view.history.map((entry) => entry.shortDateText), ['9月12日', '9月5日']);
+    expect(
+      view.history.map((entry) => entry.dayKey.date),
+      dates.map((date) => calendarDateOf(date.toLocal())),
+    );
+  });
+
   test('9月12日の記録はゼロ埋めせず日本語の日付になる', () {
     final view = ItemView.from(_item(DateTime.utc(2026, 9, 12, 3)), now: now);
     expect(view.lastDoneText, '2026年9月12日');
@@ -170,7 +186,13 @@ void main() {
         _item(lastDoneAt, recentDoneAts: [lastDoneAt]),
         now: now,
       );
-      expect(view.history, [const DoneHistoryEntry(dateText: '2026年9月12日')]);
+      expect(view.history, [
+        DoneHistoryEntry(
+          dateText: '2026年9月12日',
+          shortDateText: '9月12日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+        ),
+      ]);
     });
 
     test('3暦日で新しい順・間隔つき・最古は null', () {
@@ -187,9 +209,23 @@ void main() {
         now: now,
       );
       expect(view.history, [
-        const DoneHistoryEntry(dateText: '2026年9月12日', intervalDays: 7),
-        const DoneHistoryEntry(dateText: '2026年9月5日', intervalDays: 7),
-        const DoneHistoryEntry(dateText: '2026年8月29日'),
+        DoneHistoryEntry(
+          dateText: '2026年9月12日',
+          shortDateText: '9月12日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+          intervalDays: 7,
+        ),
+        DoneHistoryEntry(
+          dateText: '2026年9月5日',
+          shortDateText: '9月5日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 9, 5)),
+          intervalDays: 7,
+        ),
+        DoneHistoryEntry(
+          dateText: '2026年8月29日',
+          shortDateText: '8月29日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 8, 29)),
+        ),
       ]);
     });
 
@@ -207,8 +243,17 @@ void main() {
         now: now,
       );
       expect(view.history, [
-        const DoneHistoryEntry(dateText: '2026年9月12日', intervalDays: 7),
-        const DoneHistoryEntry(dateText: '2026年9月5日'),
+        DoneHistoryEntry(
+          dateText: '2026年9月12日',
+          shortDateText: '9月12日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+          intervalDays: 7,
+        ),
+        DoneHistoryEntry(
+          dateText: '2026年9月5日',
+          shortDateText: '9月5日',
+          dayKey: HistoryDayKey(DateTime.utc(2026, 9, 5)),
+        ),
       ]);
     });
 

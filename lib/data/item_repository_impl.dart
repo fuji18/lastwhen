@@ -237,6 +237,77 @@ ORDER BY item_id, done_at DESC, rn
     });
   }
 
+  @override
+  Future<List<DoneLog>> removeDoneLogsBetween(
+    ItemId id, {
+    required DateTime from,
+    required DateTime to,
+    required DateTime now,
+  }) {
+    final fromMillis = _toEpochMillis(from);
+    final toMillis = _toEpochMillis(to);
+    return _db.transaction(() async {
+      // 消す前に行を控える(取り消しで元の ID・日時に戻すため)。
+      final rows =
+          await (_db.select(_db.doneLogs)
+                ..where(
+                  (t) =>
+                      t.itemId.equals(id.value) &
+                      t.doneAt.isBiggerOrEqualValue(fromMillis) &
+                      t.doneAt.isSmallerThanValue(toMillis),
+                )
+                ..orderBy([(t) => OrderingTerm.desc(t.doneAt)]))
+              .get();
+      // 該当なし(項目が無い場合を含む)なら何も書かない。updated_at も進めない。
+      if (rows.isEmpty) {
+        return const <DoneLog>[];
+      }
+      await (_db.delete(
+        _db.doneLogs,
+      )..where((t) => t.id.isIn([for (final row in rows) row.id]))).go();
+      await _syncLastDoneAt(id, now: now);
+      return [
+        for (final row in rows)
+          DoneLog(id: DoneLogId(row.id), doneAt: _toUtc(row.doneAt)),
+      ];
+    });
+  }
+
+  @override
+  Future<void> restoreDoneLogs(
+    ItemId id,
+    List<DoneLog> logs, {
+    required DateTime now,
+  }) async {
+    if (logs.isEmpty) {
+      return;
+    }
+    await _db.transaction(() async {
+      final exists = await (_db.select(
+        _db.items,
+      )..where((t) => t.id.equals(id.value))).getSingleOrNull();
+      // 対象が無い(= 削除と同時操作)なら書かない。存在しない item_id への INSERT は
+      // 外部キー制約違反になる。
+      if (exists == null) {
+        return;
+      }
+      for (final log in logs) {
+        // 同じ ID が既にあれば飛ばす(取り消しが二重に走っても行が増えない)。
+        await _db
+            .into(_db.doneLogs)
+            .insert(
+              DoneLogRow(
+                id: log.id.value,
+                itemId: id.value,
+                doneAt: _toEpochMillis(log.doneAt),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+      }
+      await _syncLastDoneAt(id, now: now);
+    });
+  }
+
   /// last_done_at を done_logs の最大値(無ければ NULL)に揃え、updated_at を [now] にする。
   ///
   /// `updates: {_db.items}` を渡して watchAll の購読に変更を通知させる。

@@ -58,11 +58,16 @@ String historyEntrySemanticsLabel(DoneHistoryEntry entry) {
       : '${entry.dateText}、前回から$intervalDays日';
 }
 
+/// 履歴 1 行の削除ボタンの読み上げ文(tooltip)。日付を含める。
+String historyDeleteButtonLabel(DoneHistoryEntry entry) =>
+    '${entry.dateText}の記録を削除';
+
 /// 記録の詳細画面(F29)。カードのタップで一覧・図鑑から開く。
 ///
 /// **最終実施日・平均の間隔・前回からの間隔・経年ステージの一言・記録の履歴**を示し、
 /// 下部の「記録する」で確認なしに記録できる。右上のメニューから日付を指定して記録・編集へ進む。
-/// 削除の入口はここに置かない(編集画面の中だけ。F7)。
+/// 項目の削除の入口はここに置かない(編集画面の中だけ。F7)。
+/// 記録の履歴の各行からは、その日の記録を削除できる(#63)。
 class ItemDetailScreen extends ConsumerStatefulWidget {
   /// [itemId] の項目の詳細画面を作る。
   const ItemDetailScreen({required this.itemId, super.key});
@@ -258,7 +263,8 @@ class _DetailBody extends StatelessWidget {
               ),
             )
           else ...[
-            for (final entry in item.history) _HistoryRow(entry: entry),
+            for (final entry in item.history)
+              _HistoryRow(itemId: item.id, entry: entry),
             if (item.historyTruncated) ...[
               const SizedBox(height: 8),
               Text(
@@ -426,7 +432,9 @@ class _Badge extends StatelessWidget {
 
 /// 記録の履歴 1 行。
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry});
+  const _HistoryRow({required this.itemId, required this.entry});
+
+  final ItemId itemId;
 
   final DoneHistoryEntry entry;
 
@@ -434,33 +442,46 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final intervalDays = entry.intervalDays;
-    return Semantics(
-      label: historyEntrySemanticsLabel(entry),
-      excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(Icons.circle, size: 8, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                entry.dateText,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                ),
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            label: historyEntrySemanticsLabel(entry),
+            excludeSemantics: true,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.circle, size: 8, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      entry.dateText,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (intervalDays != null)
+                    Text(
+                      '$intervalDays日',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (intervalDays != null)
-              Text(
-                '$intervalDays日',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 4),
+        IconButton(
+          onPressed: () =>
+              unawaited(deleteHistoryDayWithUndo(context, itemId, entry)),
+          tooltip: historyDeleteButtonLabel(entry),
+          icon: const Icon(Icons.delete_outline),
+        ),
+      ],
     );
   }
 }
