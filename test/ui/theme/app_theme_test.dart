@@ -110,5 +110,22 @@ void main() {
       expect(theme.floatingActionButtonTheme.backgroundColor, colors.primary);
       expect(theme.floatingActionButtonTheme.foregroundColor, colors.onPrimary);
     });
+
+    test('$name テーマの Scaffold 背景は透明(地は PaperBackground が塗る)', () {
+      expect(theme.scaffoldBackgroundColor, Colors.transparent);
+    });
+
+    test('$name テーマの AppBar は通常透明、下に潜ったときだけ不透明', () {
+      final resolver = theme.appBarTheme.backgroundColor;
+      expect(resolver, isA<WidgetStateColor>());
+      expect(
+        (resolver as WidgetStateColor).resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        resolver.resolve(<WidgetState>{WidgetState.scrolledUnder}),
+        colors.surfaceContainer,
+      );
+    });
   }
 }

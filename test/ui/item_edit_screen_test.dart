@@ -11,6 +11,7 @@ import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
+import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
@@ -101,6 +102,17 @@ void main() {
       '美容院',
     );
     expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isFalse);
+  });
+
+  testWidgets('編集画面の根に PaperBackground がある', (tester) async {
+    await openEditScreen(tester, '美容院');
+    expect(
+      find.descendant(
+        of: find.byType(ItemEditScreen),
+        matching: find.byType(PaperBackground),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('名前を変えて保存すると一覧に新しい名前が出る', (tester) async {

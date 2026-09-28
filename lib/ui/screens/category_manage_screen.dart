@@ -7,6 +7,7 @@ import '../../state/category_results.dart';
 import '../category_name_error_text.dart';
 import '../widgets/category_name_dialog.dart';
 import '../widgets/centered_scrollable.dart';
+import '../widgets/paper_background.dart';
 
 /// カテゴリの管理画面。カテゴリの追加・名前変更・削除を行う唯一の入口(F13)。
 class CategoryManageScreen extends ConsumerWidget {
@@ -16,22 +17,24 @@ class CategoryManageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(categoryListProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('カテゴリを管理')),
-      body: SafeArea(
-        child: switch (categories) {
-          AsyncData(:final value) when value.isEmpty => const _EmptyList(),
-          AsyncData(:final value) => _CategoryList(categories: value),
-          AsyncError() => const _LoadError(),
-          _ => const Center(
-            child: CircularProgressIndicator(semanticsLabel: '読み込み中'),
-          ),
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openAddDialog(context, ref),
-        tooltip: 'カテゴリを追加',
-        child: const Icon(Icons.add),
+    return PaperBackground(
+      child: Scaffold(
+        appBar: AppBar(title: const Text('カテゴリを管理')),
+        body: SafeArea(
+          child: switch (categories) {
+            AsyncData(:final value) when value.isEmpty => const _EmptyList(),
+            AsyncData(:final value) => _CategoryList(categories: value),
+            AsyncError() => const _LoadError(),
+            _ => const Center(
+              child: CircularProgressIndicator(semanticsLabel: '読み込み中'),
+            ),
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _openAddDialog(context, ref),
+          tooltip: 'カテゴリを追加',
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

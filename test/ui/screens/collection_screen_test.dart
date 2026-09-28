@@ -12,6 +12,7 @@ import 'package:lastwhen/ui/widgets/collection_card.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
+import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../../support/fake_category_repository.dart';
 import '../../support/fake_clock.dart';
@@ -76,6 +77,11 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('起動直後の HomeShell の根に PaperBackground が 1 つある', (tester) async {
+    await pumpItems(tester);
+    expect(find.byType(PaperBackground), findsOneWidget);
   });
 
   testWidgets('図鑑には記録済みの項目だけがカードで並び、未実施は出ない', (tester) async {

@@ -11,6 +11,7 @@ import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
 import '../widgets/item_icon_picker.dart';
 import '../widgets/item_category_picker.dart';
+import '../widgets/paper_background.dart';
 
 /// 項目の登録画面。**必須の入力は項目名 1 つだけ**(F2)。アイコン(F14)は任意で、選ばなければ
 /// 既定アイコンになる。必須の入力を増やすと「30 秒以内に登録できる」という成功指標と衝突する。
@@ -49,58 +50,60 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('項目を追加'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          tooltip: 'キャンセル',
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+    return PaperBackground(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('項目を追加'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'キャンセル',
+            onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            // スクロールビューの中では高さが無限になるので min を明示する。
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _controller,
-                // 開いた瞬間に入力できる = タップが 1 つ減る(受け入れ条件)。
-                autofocus: true,
-                // 51 文字目を打てなくする。後から弾くより分かりやすい(Issue #6 技術メモ)。
-                // ドメイン側の検証は消さない(判断3)。
-                maxLength: maxItemNameLength,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: '項目名',
-                  hintText: '例: 美容院',
-                  border: const OutlineInputBorder(),
-                  errorText: _errorText,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              // スクロールビューの中では高さが無限になるので min を明示する。
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _controller,
+                  // 開いた瞬間に入力できる = タップが 1 つ減る(受け入れ条件)。
+                  autofocus: true,
+                  // 51 文字目を打てなくする。後から弾くより分かりやすい(Issue #6 技術メモ)。
+                  // ドメイン側の検証は消さない(判断3)。
+                  maxLength: maxItemNameLength,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: '項目名',
+                    hintText: '例: 美容院',
+                    border: const OutlineInputBorder(),
+                    errorText: _errorText,
+                  ),
+                  onChanged: _handleChanged,
+                  onSubmitted: (_) => _save(),
                 ),
-                onChanged: _handleChanged,
-                onSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: 24),
-              ItemIconPicker(
-                selected: _icon,
-                onChanged: (value) => setState(() => _icon = value),
-                enabled: !_isSaving,
-              ),
-              const SizedBox(height: 24),
-              ItemCategoryPicker(
-                selected: _categoryId,
-                onChanged: (value) => setState(() => _categoryId = value),
-                enabled: !_isSaving,
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _isSaving ? null : _save,
-                child: const Text('保存'),
-              ),
-            ],
+                const SizedBox(height: 24),
+                ItemIconPicker(
+                  selected: _icon,
+                  onChanged: (value) => setState(() => _icon = value),
+                  enabled: !_isSaving,
+                ),
+                const SizedBox(height: 24),
+                ItemCategoryPicker(
+                  selected: _categoryId,
+                  onChanged: (value) => setState(() => _categoryId = value),
+                  enabled: !_isSaving,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _isSaving ? null : _save,
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

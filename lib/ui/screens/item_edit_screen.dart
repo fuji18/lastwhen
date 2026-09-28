@@ -12,6 +12,7 @@ import '../../state/item_list_notifier.dart';
 import '../item_name_error_text.dart';
 import '../widgets/item_category_picker.dart';
 import '../widgets/item_icon_picker.dart';
+import '../widgets/paper_background.dart';
 
 /// 項目の編集画面。**変更できるのは項目名・アイコン・カテゴリ(F6 / F14 / F13)**。
 ///
@@ -71,66 +72,68 @@ class _ItemEditScreenState extends ConsumerState<ItemEditScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('項目を編集'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          tooltip: 'キャンセル',
-          onPressed: _isBusy ? null : () => Navigator.of(context).pop(),
+    return PaperBackground(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('項目を編集'),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'キャンセル',
+            onPressed: _isBusy ? null : () => Navigator.of(context).pop(),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            // スクロールビューの中では高さが無限になるので min を明示する。
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _controller,
-                // 開いた瞬間にキーボードを出すと削除ボタンが隠れる(判断15)。
-                autofocus: false,
-                // 51 文字目を打てなくする。ドメイン側の検証は消さない(#6 判断3)。
-                maxLength: maxItemNameLength,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: '項目名',
-                  border: const OutlineInputBorder(),
-                  errorText: _errorText,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              // スクロールビューの中では高さが無限になるので min を明示する。
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _controller,
+                  // 開いた瞬間にキーボードを出すと削除ボタンが隠れる(判断15)。
+                  autofocus: false,
+                  // 51 文字目を打てなくする。ドメイン側の検証は消さない(#6 判断3)。
+                  maxLength: maxItemNameLength,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: '項目名',
+                    border: const OutlineInputBorder(),
+                    errorText: _errorText,
+                  ),
+                  onChanged: _handleChanged,
+                  onSubmitted: (_) => _save(),
                 ),
-                onChanged: _handleChanged,
-                onSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: 24),
-              ItemIconPicker(
-                selected: _icon,
-                onChanged: (value) => setState(() => _icon = value),
-                enabled: !_isBusy,
-              ),
-              const SizedBox(height: 24),
-              ItemCategoryPicker(
-                selected: _categoryId,
-                onChanged: (value) => setState(() => _categoryId = value),
-                enabled: !_isBusy,
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _isBusy ? null : _save,
-                child: const Text('保存'),
-              ),
-              // 破壊的操作を保存から離す(判断14)。
-              const SizedBox(height: 40),
-              TextButton.icon(
-                onPressed: _isBusy ? null : _delete,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('削除'),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
+                const SizedBox(height: 24),
+                ItemIconPicker(
+                  selected: _icon,
+                  onChanged: (value) => setState(() => _icon = value),
+                  enabled: !_isBusy,
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                ItemCategoryPicker(
+                  selected: _categoryId,
+                  onChanged: (value) => setState(() => _categoryId = value),
+                  enabled: !_isBusy,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _isBusy ? null : _save,
+                  child: const Text('保存'),
+                ),
+                // 破壊的操作を保存から離す(判断14)。
+                const SizedBox(height: 40),
+                TextButton.icon(
+                  onPressed: _isBusy ? null : _delete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('削除'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

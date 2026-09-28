@@ -11,6 +11,7 @@ import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
+import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
@@ -51,6 +52,17 @@ void main() {
     expect(find.byType(ItemAddScreen), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('保存'), findsOneWidget);
+  });
+
+  testWidgets('登録画面の根に PaperBackground がある', (tester) async {
+    await openAddScreen(tester);
+    expect(
+      find.descendant(
+        of: find.byType(ItemAddScreen),
+        matching: find.byType(PaperBackground),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('項目がある一覧の FAB から登録画面へ進める', (tester) async {
