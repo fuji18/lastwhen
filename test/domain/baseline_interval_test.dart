@@ -2,6 +2,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/baseline_interval.dart';
 
 void main() {
+  group('distinctCalendarDatesOf', () {
+    test('空入力で空', () {
+      expect(distinctCalendarDatesOf(const <DateTime>[]), isEmpty);
+    });
+
+    test('同日2件が1つになる', () {
+      final doneAts = [
+        DateTime.utc(2026, 1, 10, 3),
+        DateTime.utc(2026, 1, 10, 20),
+      ];
+      expect(distinctCalendarDatesOf(doneAts), [DateTime.utc(2026, 1, 10)]);
+    });
+
+    test('順序が崩れた入力でも新しい順', () {
+      final scrambled = [
+        DateTime.utc(2026, 1, 1, 3),
+        DateTime.utc(2026, 1, 10, 3),
+        DateTime.utc(2026, 1, 4, 3),
+      ];
+      expect(distinctCalendarDatesOf(scrambled), [
+        DateTime.utc(2026, 1, 10),
+        DateTime.utc(2026, 1, 4),
+        DateTime.utc(2026, 1, 1),
+      ]);
+    });
+  });
+
   group('intervalDaysOf', () {
     test('記録 0 件なら空', () {
       expect(intervalDaysOf(const <DateTime>[]), isEmpty);

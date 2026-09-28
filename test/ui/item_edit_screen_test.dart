@@ -69,6 +69,8 @@ void main() {
     await pumpItems(tester);
     await tester.tap(find.text(name));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
   }
@@ -76,6 +78,13 @@ void main() {
   Future<void> saveName(WidgetTester tester, String name) async {
     await tester.enterText(find.byType(TextField), name);
     await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+  }
+
+  // 保存後は記録の詳細(全画面)に戻る。下の一覧は Navigator の裏に隠れ offstage になる
+  // (`skipOffstage` は既定で true)。一覧側の状態を見るときは戻ってから確認する。
+  Future<void> backToList(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('戻る'));
     await tester.pumpAndSettle();
   }
 
@@ -94,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('詳細シートの編集から現在の項目名が入った編集画面が開く', (tester) async {
+  testWidgets('記録の詳細の編集から現在の項目名が入った編集画面が開く', (tester) async {
     await openEditScreen(tester, '美容院');
     expect(find.byType(ItemEditScreen), findsOneWidget);
     expect(
@@ -119,6 +128,7 @@ void main() {
     await openEditScreen(tester, '美容院');
     await saveName(tester, 'シャンプー');
     expect(find.byType(ItemEditScreen), findsNothing);
+    await backToList(tester);
     expect(find.text('シャンプー'), findsOneWidget);
     expect(find.text('美容院'), findsNothing);
     expect((await repository.watchAll().first).first.name, 'シャンプー');
@@ -127,6 +137,7 @@ void main() {
   testWidgets('保存しても最終実施日と経過日数は変わらない', (tester) async {
     await openEditScreen(tester, '美容院');
     await saveName(tester, 'シャンプー');
+    await backToList(tester);
     expect(find.text('4日前'), findsOneWidget);
     expect(find.text('2026年9月12日'), findsOneWidget);
     expect(
@@ -239,6 +250,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('風呂掃除'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     final semantics = tester.getSemantics(find.byTooltip('風呂'));
@@ -250,6 +263,7 @@ void main() {
     await tester.tap(find.byTooltip('風呂'));
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
+    await backToList(tester);
     expect(
       find.descendant(
         of: find.byType(ItemCard),
@@ -268,11 +282,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('風呂掃除'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('指定なし'));
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
+    await backToList(tester);
     expect(
       find.descendant(
         of: find.byType(ItemCard),
@@ -305,6 +322,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     final beforeChip = tester.widget<ChoiceChip>(
@@ -333,6 +352,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(uncategorizedLabel));
@@ -356,6 +377,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();

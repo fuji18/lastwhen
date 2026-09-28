@@ -3,50 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/item.dart';
 import '../state/item_view.dart';
 import '../state/item_list_notifier.dart';
 import '../state/mark_done_result.dart';
 import '../state/record_past_date_result.dart';
+import 'screens/item_detail_screen.dart';
 import 'screens/item_edit_screen.dart';
-import 'widgets/item_detail_sheet.dart';
 
-/// 詳細シート・編集画面を開く関数。一覧と図鑑の両方から開くため、画面から切り出した(#34)。
+/// 記録の詳細・編集画面を開く関数と、記録の結果を出す関数。一覧・図鑑・記録の詳細から使う。
 
-/// 詳細シートで押されたボタン。シートを閉じてから処理する。
-enum _DetailSheetAction { edit, recordPastDate }
-
-/// 詳細シートを開く。編集画面と「日付を指定して記録」への入口はシートの中にある。
-Future<void> openItemDetailSheet(BuildContext context, ItemView item) async {
+/// 記録の詳細画面を開く。編集画面と「日付を指定して記録」への入口はこの画面のメニューにある。
+void openItemDetailScreen(BuildContext context, ItemId id) {
   // 画面遷移と同じく、取り消し導線を閉じる。
   ScaffoldMessenger.of(context).clearSnackBars();
-  final action = await showModalBottomSheet<_DetailSheetAction>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (sheetContext) => ItemDetailSheet(
-      item: item,
-      onEditPressed: () =>
-          Navigator.of(sheetContext).pop(_DetailSheetAction.edit),
-      onRecordPastDatePressed: () =>
-          Navigator.of(sheetContext).pop(_DetailSheetAction.recordPastDate),
-    ),
+  Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(builder: (_) => ItemDetailScreen(itemId: id)),
   );
-  if (!context.mounted) {
-    return;
-  }
-  switch (action) {
-    case _DetailSheetAction.edit:
-      openItemEditScreen(context, item);
-    case _DetailSheetAction.recordPastDate:
-      await _recordPastDate(context, item);
-    case null:
-      break;
-  }
 }
 
 /// 日付を選ばせて記録し、取り消し導線を出す(F16)。**確認ダイアログは出さない。**
-Future<void> _recordPastDate(BuildContext context, ItemView item) async {
+Future<void> recordPastDateWithUndo(BuildContext context, ItemId id) async {
   final messenger = ScaffoldMessenger.of(context);
   final notifier = ProviderScope.containerOf(
     context,
@@ -65,7 +42,7 @@ Future<void> _recordPastDate(BuildContext context, ItemView item) async {
   if (picked == null) {
     return;
   }
-  final result = await notifier.recordPastDate(item.id, picked);
+  final result = await notifier.recordPastDate(id, picked);
   switch (result) {
     case RecordPastDateSucceeded(:final undo, :final dateText):
       // キューに積ませない。「直近 1 件のみ」を保つ(「やった」と同じ)。
@@ -101,6 +78,62 @@ void _undoRecordPastDate(
 ) {
   unawaited(() async {
     final result = await notifier.undoRecordPastDate(undo);
+    if (result is UndoFailed) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('取り消せませんでした。もう一度お試しください')),
+      );
+    }
+  }());
+}
+
+/// 「やった」を記録し、直後に取り消し導線を出す。
+///
+/// **確認ダイアログを挟まない**(`docs/product-requirements.md` F3)。
+Future<void> markDoneWithUndo(BuildContext context, ItemId id) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final notifier = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(itemListProvider.notifier);
+  final result = await notifier.markDone(id);
+  switch (result) {
+    case MarkDoneSucceeded(:final undo):
+      // キューに積ませない。積むと前の導線が先に出て「直近 1 件のみ」が崩れる。
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('記録しました'),
+          // アクションを付けると persist が既定で true になり、4 秒で消えない。
+          persist: false,
+          action: SnackBarAction(
+            label: '取り消す',
+            onPressed: () => _undoMarkDone(messenger, notifier, undo),
+          ),
+        ),
+      );
+    // 削除と同時操作。何も出さない(`docs/functional-design.md`「エラーの分類」)。
+    case MarkDoneIgnored():
+      break;
+    case MarkDoneFailed():
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('保存できませんでした。もう一度お試しください')),
+      );
+  }
+}
+
+/// 直前の「やった」を取り消す。
+///
+/// **`WidgetRef` を受け取らない。** 取り消しは `SnackBar` のアクションから走るため、
+/// 押された時点で呼び出し元の画面(記録の詳細)が閉じている可能性がある。
+void _undoMarkDone(
+  ScaffoldMessengerState messenger,
+  ItemListNotifier notifier,
+  MarkDoneUndo undo,
+) {
+  unawaited(() async {
+    final result = await notifier.undoMarkDone(undo);
     if (result is UndoFailed) {
       messenger.clearSnackBars();
       messenger.showSnackBar(
