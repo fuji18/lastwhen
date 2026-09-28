@@ -7,6 +7,7 @@ import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/state/item_order.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/home_shell.dart';
+import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
@@ -14,7 +15,6 @@ import 'package:lastwhen/ui/widgets/category_filter_bar.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
-import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
 import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
@@ -276,6 +276,8 @@ void main() {
     Future<void> openPicker(WidgetTester tester, String name) async {
       await tester.tap(find.text(name));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('その他の操作'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('日付を指定して記録'));
       await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog), findsOneWidget);
@@ -289,13 +291,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('詳細シートから日付を指定すると確認なしで記録される', (tester) async {
+    // 記録の詳細は全画面なので、下の一覧は Navigator の裏に隠れ offstage になる
+    // (`skipOffstage` は既定で true)。一覧側の状態を見るときは戻ってから確認する。
+    Future<void> backToList(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('戻る'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('記録の詳細から日付を指定すると確認なしで記録される', (tester) async {
       await pumpItems(tester);
       await openPicker(tester, '歯ブラシ交換');
       await pickDay(tester, '14');
-      expect(rowText('歯ブラシ交換', '2日前'), findsOneWidget);
       expect(find.text('9月14日で記録しました'), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
+      await backToList(tester);
+      expect(rowText('歯ブラシ交換', '2日前'), findsOneWidget);
     });
 
     testWidgets('日付の選択の最終日は今日', (tester) async {
@@ -313,9 +323,10 @@ void main() {
       await pumpItems(tester);
       await openPicker(tester, '歯ブラシ交換');
       await pickDay(tester, '14');
-      expect(rowText('歯ブラシ交換', '2日前'), findsOneWidget);
+      expect(find.text('9月14日で記録しました'), findsOneWidget);
       await tester.tap(find.text('取り消す'));
       await tester.pumpAndSettle();
+      await backToList(tester);
       expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
     });
 
@@ -324,6 +335,7 @@ void main() {
       await openPicker(tester, '歯ブラシ交換');
       await tester.tap(pickerText('キャンセル'));
       await tester.pumpAndSettle();
+      await backToList(tester);
       expect(rowText('歯ブラシ交換', '未実施'), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
       expect((await repository.watchAll().first).last.recentDoneAts, isEmpty);
@@ -333,8 +345,9 @@ void main() {
       await pumpItems(tester);
       await openPicker(tester, '美容院');
       await pickDay(tester, '10');
-      expect(rowText('美容院', '4日前'), findsOneWidget);
       expect(find.text('9月10日で記録しました'), findsOneWidget);
+      await backToList(tester);
+      expect(rowText('美容院', '4日前'), findsOneWidget);
       expect(
         (await repository.watchAll().first).first.recentDoneAts,
         hasLength(2),
@@ -342,36 +355,38 @@ void main() {
     });
   });
 
-  testWidgets('カードタップで詳細シートが開き、取り消し導線が閉じる', (tester) async {
+  testWidgets('カードタップで記録の詳細が開き、取り消し導線が閉じる', (tester) async {
     await pumpItems(tester);
     await record(tester, '歯ブラシ交換');
     expect(find.byType(SnackBar), findsOneWidget);
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
-    expect(find.byType(ItemDetailSheet), findsOneWidget);
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
     expect(find.byType(ItemEditScreen), findsNothing);
     expect(find.byType(SnackBar), findsNothing);
     expect(find.text('取り消す'), findsNothing);
   });
 
-  testWidgets('詳細シートの編集から編集画面へ遷移する', (tester) async {
+  testWidgets('記録の詳細のメニューの編集から編集画面へ遷移する', (tester) async {
     await pumpItems(tester);
     await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('その他の操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('編集'));
     await tester.pumpAndSettle();
     expect(find.byType(ItemEditScreen), findsOneWidget);
-    expect(find.byType(ItemDetailSheet), findsNothing);
+    expect(find.byType(ItemDetailScreen), findsNothing);
   });
 
-  testWidgets('詳細シートを閉じると一覧に戻る', (tester) async {
+  testWidgets('記録の詳細を閉じると一覧に戻る', (tester) async {
     await pumpItems(tester);
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
-    expect(find.byType(ItemDetailSheet), findsOneWidget);
-    await tester.tapAt(const Offset(10, 10));
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('戻る'));
     await tester.pumpAndSettle();
-    expect(find.byType(ItemDetailSheet), findsNothing);
+    expect(find.byType(ItemDetailScreen), findsNothing);
     expect(find.byType(ItemEditScreen), findsNothing);
     expect(find.byType(ItemListScreen), findsOneWidget);
   });

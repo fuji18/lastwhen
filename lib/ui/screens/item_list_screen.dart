@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/category.dart';
-import '../../domain/item.dart';
 import '../../state/category_filter.dart';
 import '../../state/category_list_notifier.dart';
-import '../../state/mark_done_result.dart';
 import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
 import '../../state/item_sort_order.dart';
@@ -155,13 +153,13 @@ void _openCategoryManageScreen(BuildContext context) {
 }
 
 /// 項目が 1 件以上あるときの一覧。
-class _ItemList extends ConsumerWidget {
+class _ItemList extends StatelessWidget {
   const _ItemList({required this.items});
 
   final List<ItemView> items;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // 100 件で全行を同時に構築しない(`docs/functional-design.md`「パフォーマンス最適化」)。
     return ListView.builder(
       // FAB が最終行の「やった」ボタンに被らないようにする。56 + 16 × 2。
@@ -171,8 +169,8 @@ class _ItemList extends ConsumerWidget {
         final item = items[index];
         return ItemCard(
           item: item,
-          onDonePressed: () => _handleDone(context, ref, item.id),
-          onTap: () => unawaited(openItemDetailSheet(context, item)),
+          onDonePressed: () => unawaited(markDoneWithUndo(context, item.id)),
+          onTap: () => openItemDetailScreen(context, item.id),
         );
       },
     );
@@ -194,56 +192,4 @@ class _FilteredEmpty extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 「やった」を記録し、直後に取り消し導線を出す。
-///
-/// **確認ダイアログを挟まない**(`docs/product-requirements.md` F3)。
-Future<void> _handleDone(BuildContext context, WidgetRef ref, ItemId id) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final result = await ref.read(itemListProvider.notifier).markDone(id);
-  switch (result) {
-    case MarkDoneSucceeded(:final undo):
-      // キューに積ませない。積むと前の導線が先に出て「直近 1 件のみ」が崩れる(判断5)。
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('記録しました'),
-          // アクションを付けると persist が既定で true になり、4 秒で消えない(判断6)。
-          persist: false,
-          action: SnackBarAction(
-            label: '取り消す',
-            onPressed: () => _handleUndo(messenger, ref, undo),
-          ),
-        ),
-      );
-    // 削除と同時操作。何も出さない(`docs/functional-design.md`「エラーの分類」)。
-    case MarkDoneIgnored():
-      break;
-    case MarkDoneFailed():
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('保存できませんでした。もう一度お試しください')),
-      );
-  }
-}
-
-/// 直前の「やった」を取り消す。
-///
-/// `BuildContext` ではなく [ScaffoldMessengerState] を受け取る。取り消しは `SnackBar` の
-/// アクションから走るため、押された時点で元の行のコンテキストが生きている保証がない。
-void _handleUndo(
-  ScaffoldMessengerState messenger,
-  WidgetRef ref,
-  MarkDoneUndo undo,
-) {
-  unawaited(() async {
-    final result = await ref.read(itemListProvider.notifier).undoMarkDone(undo);
-    if (result is UndoFailed) {
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('取り消せませんでした。もう一度お試しください')),
-      );
-    }
-  }());
 }

@@ -114,7 +114,7 @@ state/
 ui/
 ├── theme/
 │   └── app_theme.dart              # ColorScheme.fromSeed とタイポグラフィ
-├── item_navigation.dart            # 詳細シート・編集画面を開く関数(一覧と図鑑から使う)
+├── item_navigation.dart            # 記録の詳細・編集画面を開く関数、記録の結果を出す関数
 ├── item_icon_glyph.dart            # アイコン種別 → 描画データの対応
 ├── item_name_error_text.dart       # 検証エラー → 入力欄の文言
 ├── category_name_error_text.dart   #   〃(カテゴリ名)
@@ -124,12 +124,12 @@ ui/
 │   ├── collection_screen.dart      # 図鑑(F31)
 │   ├── item_add_screen.dart        # 新規登録(F2)
 │   ├── item_edit_screen.dart       # 編集・削除(F6・F7)
+│   ├── item_detail_screen.dart     # 記録の詳細
 │   └── category_manage_screen.dart # カテゴリの管理(F13)
 └── widgets/
     ├── item_card.dart              # 一覧の 1 枚のカード。経過日数を最大要素として組む
     ├── collection_card.dart        # 図鑑のカード
     ├── aged_paper.dart             # 経年ステージに応じた紙の描画
-    ├── item_detail_sheet.dart      # 項目の詳細シート
     ├── done_button.dart            # 「やった」ボタン(56dp 以上)
     ├── empty_state.dart            # 項目 0 件のときの表示
     ├── load_error.dart             # 一覧を読み込めなかったときの表示

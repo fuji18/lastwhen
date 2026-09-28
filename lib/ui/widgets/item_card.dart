@@ -46,7 +46,7 @@ class ItemCard extends StatelessWidget {
   /// 「やった」ボタンのタップ時の処理。
   final VoidCallback onDonePressed;
 
-  /// カードそのもののタップ時の処理(詳細シートを開く)。
+  /// カードそのもののタップ時の処理(記録の詳細を開く)。
   ///
   /// 削除の入口は編集画面だけ。一覧にスワイプ削除を置かない。
   final VoidCallback onTap;

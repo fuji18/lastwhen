@@ -11,10 +11,10 @@ import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/collection_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
+import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
-import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 
 import '../support/fake_category_repository.dart';
 import '../support/fake_clock.dart';
@@ -119,10 +119,12 @@ void main() {
           case '詳細':
             await tester.tap(find.text('美容院'));
             await tester.pumpAndSettle();
-            expect(find.byType(ItemDetailSheet), findsOneWidget);
+            expect(find.byType(ItemDetailScreen), findsOneWidget);
           case '編集':
           case '削除確認':
             await tester.tap(find.text('美容院'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byTooltip('その他の操作'));
             await tester.pumpAndSettle();
             await tester.tap(find.text('編集'));
             await tester.pumpAndSettle();

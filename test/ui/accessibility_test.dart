@@ -184,7 +184,7 @@ void main() {
       });
     }
 
-    testWidgets('文字サイズ 200% で詳細シートが破綻しない', (tester) async {
+    testWidgets('文字サイズ 200% で記録の詳細が破綻しない', (tester) async {
       _setScreenSize(tester, height: 320);
       await seedItems();
       await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
@@ -193,9 +193,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(_ellipsizedTexts(tester), isEmpty);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('編集'));
+      expect(find.text('記録する').hitTestable(), findsOneWidget);
+      await tester.ensureVisible(find.text('記録の履歴'));
       await tester.pumpAndSettle();
-      expect(find.text('編集').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

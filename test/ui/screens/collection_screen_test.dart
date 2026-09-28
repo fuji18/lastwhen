@@ -6,12 +6,12 @@ import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/collection_screen.dart';
+import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/widgets/category_filter_bar.dart';
 import 'package:lastwhen/ui/widgets/collection_card.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
-import 'package:lastwhen/ui/widgets/item_detail_sheet.dart';
 import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../../support/fake_category_repository.dart';
@@ -255,26 +255,23 @@ void main() {
     });
   });
 
-  testWidgets('図鑑から開いた詳細シートに日付を指定して記録の入口がある', (tester) async {
+  testWidgets('図鑑から開いた記録の詳細に日付を指定して記録の入口がある', (tester) async {
     await pumpItems(tester);
     await _openCollection(tester);
     await tester.tap(find.widgetWithText(CollectionCard, '美容院'));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byType(ItemDetailSheet),
-        matching: find.text('日付を指定して記録'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('その他の操作'));
+    await tester.pumpAndSettle();
+    expect(find.text('日付を指定して記録'), findsOneWidget);
   });
 
-  testWidgets('カードをタップすると詳細シートが開く', (tester) async {
+  testWidgets('カードをタップすると記録の詳細が開く', (tester) async {
     await pumpItems(tester);
     await _openCollection(tester);
     await tester.tap(find.text('美容院'));
     await tester.pumpAndSettle();
-    expect(find.byType(ItemDetailSheet), findsOneWidget);
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
   });
 
   testWidgets('ホームで記録した直後に図鑑を開くと取り消し導線が消える', (tester) async {

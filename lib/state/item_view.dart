@@ -17,6 +17,26 @@ import '../domain/item_icon.dart';
 /// シンボル(曜日名・月名)を引かず、`initializeDateFormatting` も要らない。
 final DateFormat _lastDoneFormat = DateFormat('y年M月d日');
 
+/// 記録の履歴 1 行(暦日単位)。**`DateTime` を持たない**(ItemView と同じ理由)。
+final class DoneHistoryEntry {
+  const DoneHistoryEntry({required this.dateText, this.intervalDays});
+
+  /// 記録した日(`2026年9月12日`)。`_lastDoneFormat` で整形する。
+  final String dateText;
+
+  /// 1 つ前(古い側)の記録からの暦日の差。表示範囲で最も古い行は null。
+  final int? intervalDays;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DoneHistoryEntry &&
+      other.dateText == dateText &&
+      other.intervalDays == intervalDays;
+
+  @override
+  int get hashCode => Object.hash(dateText, intervalDays);
+}
+
 /// UI が描画に必要とするものだけを持つ表示モデル。
 ///
 /// **`DateTime` を持たない。** 「UTC で保存された日時をローカルの暦日として読む」という
@@ -34,6 +54,8 @@ final class ItemView {
     this.agingStage = AgingStage.fresh,
     this.icon,
     this.categoryId,
+    this.history = const <DoneHistoryEntry>[],
+    this.historyTruncated = false,
   });
 
   /// ドメインの [Item] を [now] 時点の表示モデルへ変換する。
@@ -46,6 +68,15 @@ final class ItemView {
           : elapsedDays(lastDoneAt: lastDoneAt, now: now),
       baselineIntervalDays: baselineDays,
     );
+    final dates = baseline.distinctCalendarDatesOf(item.recentDoneAts);
+    final intervals = baseline.intervalDaysOf(item.recentDoneAts);
+    final history = [
+      for (var i = 0; i < dates.length; i++)
+        DoneHistoryEntry(
+          dateText: _lastDoneFormat.format(dates[i]),
+          intervalDays: i < intervals.length ? intervals[i] : null,
+        ),
+    ];
     return ItemView(
       id: item.id,
       name: item.name,
@@ -60,6 +91,9 @@ final class ItemView {
       agingStage: agingStageOf(relative),
       icon: item.icon,
       categoryId: item.categoryId,
+      history: history,
+      historyTruncated:
+          item.recentDoneAts.length >= baseline.recentDoneAtsLimit,
     );
   }
 
@@ -93,6 +127,12 @@ final class ItemView {
   /// 項目のカテゴリ。null は未分類。
   final CategoryId? categoryId;
 
+  /// 記録の履歴(暦日単位・新しい順)。最大 [baseline.recentDoneAtsLimit] 件。
+  final List<DoneHistoryEntry> history;
+
+  /// 履歴が [baseline.recentDoneAtsLimit] 件で切り詰められている(11 件目以降が存在しうる)。
+  final bool historyTruncated;
+
   @override
   bool operator ==(Object other) =>
       other is ItemView &&
@@ -105,7 +145,9 @@ final class ItemView {
       other.relativeElapsed == relativeElapsed &&
       other.agingStage == agingStage &&
       other.icon == icon &&
-      other.categoryId == categoryId;
+      other.categoryId == categoryId &&
+      _historyEquals(other.history, history) &&
+      other.historyTruncated == historyTruncated;
 
   @override
   int get hashCode => Object.hash(
@@ -119,7 +161,26 @@ final class ItemView {
     agingStage,
     icon,
     categoryId,
+    Object.hashAll(history),
+    historyTruncated,
   );
+}
+
+/// `package:collection` を使わない要素比較(`lib/state/` はレイヤー依存テストの対象で、
+/// `package:flutter/` を import できない)。`lib/domain/item.dart` の `_listEquals` と同じ書き方。
+bool _historyEquals(List<DoneHistoryEntry> a, List<DoneHistoryEntry> b) {
+  if (identical(a, b)) {
+    return true;
+  }
+  if (a.length != b.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /// 一覧をまとめて表示モデルへ変換する。

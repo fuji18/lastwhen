@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,7 +15,7 @@ import '../widgets/load_error.dart';
 
 /// 図鑑画面。1 回以上記録した項目のカードをグリッドで並べる(F31)。
 ///
-/// 記録の入口・項目の追加導線は置かない。カードのタップで詳細シートを開く。
+/// 記録の入口・項目の追加導線は置かない。カードのタップで記録の詳細を開く。
 class CollectionScreen extends ConsumerStatefulWidget {
   /// 図鑑画面を作る。
   const CollectionScreen({super.key});
@@ -225,7 +223,7 @@ class _CollectionGrid extends StatelessWidget {
         final item = items[index];
         return CollectionCard(
           item: item,
-          onTap: () => unawaited(openItemDetailSheet(context, item)),
+          onTap: () => openItemDetailScreen(context, item.id),
         );
       },
     );

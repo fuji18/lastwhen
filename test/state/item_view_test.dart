@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/domain/aging_stage.dart';
+import 'package:lastwhen/domain/baseline_interval.dart' as baseline;
 import 'package:lastwhen/domain/category.dart';
 import 'package:lastwhen/domain/elapsed_days.dart';
 import 'package:lastwhen/domain/item.dart';
@@ -153,6 +154,86 @@ void main() {
         agingStage: AgingStage.heavilyAged,
       );
       expect(fresh, isNot(aged));
+    });
+  });
+
+  group('history', () {
+    test('未実施で空', () {
+      final view = ItemView.from(_item(null), now: now);
+      expect(view.history, isEmpty);
+      expect(view.historyTruncated, isFalse);
+    });
+
+    test('1件で1行・間隔 null', () {
+      final lastDoneAt = DateTime.utc(2026, 9, 12, 3);
+      final view = ItemView.from(
+        _item(lastDoneAt, recentDoneAts: [lastDoneAt]),
+        now: now,
+      );
+      expect(view.history, [const DoneHistoryEntry(dateText: '2026年9月12日')]);
+    });
+
+    test('3暦日で新しい順・間隔つき・最古は null', () {
+      final lastDoneAt = DateTime.utc(2026, 9, 12, 3);
+      final view = ItemView.from(
+        _item(
+          lastDoneAt,
+          recentDoneAts: [
+            lastDoneAt,
+            DateTime.utc(2026, 9, 5, 3),
+            DateTime.utc(2026, 8, 29, 3),
+          ],
+        ),
+        now: now,
+      );
+      expect(view.history, [
+        const DoneHistoryEntry(dateText: '2026年9月12日', intervalDays: 7),
+        const DoneHistoryEntry(dateText: '2026年9月5日', intervalDays: 7),
+        const DoneHistoryEntry(dateText: '2026年8月29日'),
+      ]);
+    });
+
+    test('同日2件が1行になる', () {
+      final lastDoneAt = DateTime.utc(2026, 9, 12, 20);
+      final view = ItemView.from(
+        _item(
+          lastDoneAt,
+          recentDoneAts: [
+            lastDoneAt,
+            DateTime.utc(2026, 9, 12, 3),
+            DateTime.utc(2026, 9, 5, 3),
+          ],
+        ),
+        now: now,
+      );
+      expect(view.history, [
+        const DoneHistoryEntry(dateText: '2026年9月12日', intervalDays: 7),
+        const DoneHistoryEntry(dateText: '2026年9月5日'),
+      ]);
+    });
+
+    test('recentDoneAts が上限件数で historyTruncated == true', () {
+      final doneAts = List.generate(
+        baseline.recentDoneAtsLimit,
+        (i) => DateTime.utc(2026, 9, 12 - i, 3),
+      );
+      final view = ItemView.from(
+        _item(doneAts.first, recentDoneAts: doneAts),
+        now: now,
+      );
+      expect(view.historyTruncated, isTrue);
+    });
+
+    test('recentDoneAts が上限未満で historyTruncated == false', () {
+      final doneAts = List.generate(
+        baseline.recentDoneAtsLimit - 1,
+        (i) => DateTime.utc(2026, 9, 12 - i, 3),
+      );
+      final view = ItemView.from(
+        _item(doneAts.first, recentDoneAts: doneAts),
+        now: now,
+      );
+      expect(view.historyTruncated, isFalse);
     });
   });
 }

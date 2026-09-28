@@ -6,17 +6,25 @@ const int recentDoneAtsLimit = 10;
 /// 基準間隔の算出に使う間隔の最大数。
 const int baselineIntervalSampleSize = 5;
 
+/// 実施日時(UTC)を**ローカルの暦日**に直し、重複を除いて**新しい順**に返す。
+///
+/// 各日時はローカルの暦日に直してから比べる(`calendarDateOf(x.toLocal())`)。
+/// `elapsedDays` と同じ規則で、夏時間の切替をまたいでも 1 日ずれない。
+/// **同じ暦日の記録は 1 つにまとめる**(同日に 2 回押しても間隔 0 日を作らない)。
+/// 暦日は降順に並べ直す(端末時計の巻き戻りで入力の順序が崩れても負の間隔を作らない)。
+List<DateTime> distinctCalendarDatesOf(List<DateTime> doneAtsNewestFirst) =>
+    <DateTime>{
+      for (final doneAt in doneAtsNewestFirst) calendarDateOf(doneAt.toLocal()),
+    }.toList()..sort((a, b) => b.compareTo(a));
+
 /// 実施日時(新しい順・UTC)から、**暦日の間隔**を新しい順に返す。
 ///
-/// - 各日時はローカルの暦日に直してから比べる(`calendarDateOf(x.toLocal())`)。
-///   `elapsedDays` と同じ規則で、夏時間の切替をまたいでも 1 日ずれない
+/// - 各日時はローカルの暦日に直してから比べる([distinctCalendarDatesOf])
 /// - **同じ暦日の記録は 1 つにまとめる**(同日に 2 回押しても間隔 0 日を作らない)
 /// - 暦日は降順に並べ直してから差を取る(端末時計の巻き戻りで順序が崩れても負の間隔を作らない)
 /// - 結果の各要素は 1 以上。暦日が 1 つ以下なら空リスト
 List<int> intervalDaysOf(List<DateTime> doneAtsNewestFirst) {
-  final calendarDates = <DateTime>{
-    for (final doneAt in doneAtsNewestFirst) calendarDateOf(doneAt.toLocal()),
-  }.toList()..sort((a, b) => b.compareTo(a));
+  final calendarDates = distinctCalendarDatesOf(doneAtsNewestFirst);
 
   if (calendarDates.length <= 1) {
     return const <int>[];
