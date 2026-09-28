@@ -9,6 +9,7 @@ import '../domain/item_icon.dart';
 import '../domain/item_name.dart';
 import '../domain/past_date_record.dart';
 import 'add_item_result.dart';
+import 'delete_history_day_result.dart';
 import 'edit_item_result.dart';
 import 'item_order.dart';
 import 'item_sort_order.dart';

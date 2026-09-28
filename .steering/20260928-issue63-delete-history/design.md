@@ -535,3 +535,13 @@ void _undoDeleteHistoryDay(
 - `dart format --output=none --set-exit-if-changed .` / `flutter analyze --fatal-infos` / `flutter test` がすべて通る
   (委託先の sandbox ではテストを回せない。format と analyze まで通し、テストは検収側が回す)
 - `git diff --stat -- lib/data/database lib/data/migrations pubspec.yaml` が空
+
+## §9 CI 修正(PR #64 の `quality` 失敗への対応)
+
+CI の `flutter analyze --fatal-infos` が 12 件で落ちた。原因と修正は次の 2 つだけ。**これ以外のコードを変えない。**
+
+1. `lib/state/item_list_notifier.dart` に `import 'delete_history_day_result.dart';` を足す(既存の相対 import の並びに、アルファベット順で入れる)。
+   `DeleteHistoryDay*` が未解決の error 7 件と、`lib/ui/item_navigation.dart` 145〜148 行の dead_code warning 4 件はこれで消える見込み。消えなければ止めて報告する
+2. `test/ui/accessibility_test.dart` の `containsSemantics(...)` を `isSemantics(...)` に置き換える(引数はそのまま)。Flutter 3.40 以降で `containsSemantics` が非推奨になったため(§6-5 の指示の誤り)。`isSemantics` がその引数を受け付けない場合は止めて報告する
+
+完了条件: `flutter analyze --fatal-infos` が 0 件。`flutter test` で、変更に関係するテスト(`test/state/item_list_notifier_test.dart`・`test/ui/screens/item_detail_screen_test.dart`・`test/ui/accessibility_test.dart`・`test/data/item_repository_impl_test.dart`・`test/state/item_view_test.dart`)が通る。

@@ -36,6 +36,12 @@
 - [x] `flutter test` を通す(委託先で実行できない場合は「ホスト委任」と記録して検収側に委ねる) — ホスト委任。AGENTS.md に従い sandbox では実行していない。関連テスト: test/data/item_repository_impl_test.dart、test/state/item_view_test.dart、test/state/item_list_notifier_test.dart、test/ui/screens/item_detail_screen_test.dart、test/ui/accessibility_test.dart。
 - [x] `lib/data/database` / `lib/data/migrations` / `pubspec.yaml` に差分が無いことを確認する(§8)
 
+## フェーズ6: CI 修正(design §9)
+
+- [x] `item_list_notifier.dart` に `delete_history_day_result.dart` の import を足す(§9-1)
+- [x] `accessibility_test.dart` の `containsSemantics` を `isSemantics` に置き換える(§9-2)
+- [x] `flutter analyze --fatal-infos` が 0 件、関連テストが通る(§9 完了条件)
+
 ## 実装後の振り返り
 
 (司令塔が記入)
