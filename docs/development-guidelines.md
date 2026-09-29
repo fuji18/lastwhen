@@ -342,6 +342,8 @@ storeFile=/絶対パス/upload-keystore.jks
 - **`N` は Play にアップロードするたびに必ず 1 以上増やす。** 同じ値は二度受け付けられず、
   下げることもできない。`x.y.z` を戻しても `N` は戻さない
 - バージョンはリリース用の PR で上げる。機能 PR では触らない
+- **`lib/ui/app_info.dart` の `AppInfo.version` も同じ値に直す**(設定画面に出すバージョン)。
+  食い違いは `test/ui/app_info_test.dart` が落とす
 
 ### 難読化
 

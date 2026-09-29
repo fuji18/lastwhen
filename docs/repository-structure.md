@@ -120,13 +120,15 @@ ui/
 ├── item_icon_glyph.dart            # アイコン種別 → 描画データの対応
 ├── item_name_error_text.dart       # 検証エラー → 入力欄の文言
 ├── category_name_error_text.dart   #   〃(カテゴリ名)
+├── app_info.dart                   # アプリ名・バージョン・プライバシーポリシーの URL(設定画面に出す)
 ├── screens/
-│   ├── home_shell.dart             # 下部ナビでホームと図鑑を切り替える外枠(F31)
+│   ├── home_shell.dart             # 下部ナビでホーム・図鑑・設定を切り替える外枠(F31)
 │   ├── item_list_screen.dart       # 一覧 = ホーム(F1・F3・F5)
 │   ├── collection_screen.dart      # 図鑑(F31)
 │   ├── item_add_screen.dart        # 新規登録(F2)
 │   ├── item_edit_screen.dart       # 編集・削除(F6・F7)
 │   ├── item_detail_screen.dart     # 記録の詳細
+│   ├── settings_screen.dart        # 設定(カテゴリの管理への入口・注意事項・このアプリについて。#81)
 │   └── category_manage_screen.dart # カテゴリの管理(F13)
 └── widgets/
     ├── item_card.dart              # 一覧の 1 枚のカード。経過日数を最大要素として組む
@@ -166,6 +168,7 @@ test/
 │   ├── item_list_screen_test.dart     # ウィジェットテスト(主要導線)
 │   ├── accessibility_test.dart        # 画面横断の検査(文字サイズ・タップ領域など)
 │   ├── terminology_test.dart          # UI 文言の表記ゆれ検査
+│   ├── app_info_test.dart             # AppInfo.version と pubspec.yaml の version の照合
 │   ├── screens/                       # 画面単位のテスト
 │   ├── widgets/                       # ウィジェット単位のテスト
 │   └── theme/
