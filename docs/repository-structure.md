@@ -17,7 +17,9 @@ lastwhen/
 ├── assets/branding/          # アイコン・スプラッシュ生成の入力画像(アプリにはバンドルしない)
 ├── docs/                     # 永続ドキュメント(北極星ドキュメント群 + UI ガイド)
 │   ├── ideas/                # 下書き・アイデア(自由形式)
+│   ├── store/                # ストアへの申告の回答案(データセーフティなど)
 │   └── template-dev/         # ハーネス変更ログのみ(理由は下記「特殊ディレクトリ」)
+├── site/                     # GitHub Pages で公開する静的ページ(プライバシーポリシー)
 ├── .steering/                # 作業単位の計画とタスクリスト(履歴としてコミットする)
 ├── .claude/                  # Claude Code のハーネス設定
 ├── .codex/                   # Codex 併用時の設定
@@ -194,6 +196,8 @@ docs/
 ├── ui-design-guidelines.md   # UI 品質基準(スタック非依存 + §7 の翻訳表)
 ├── ui-design-request-template.md
 ├── ideas/                    # 下書き。initial-requirements.md が起点
+├── store/
+│   └── google-play-data-safety.md # データセーフティの回答案と根拠
 └── template-dev/
     └── CHANGELOG.md          # ハーネス変更ログ(CI が更新を要求する)
 ```
@@ -324,6 +328,18 @@ docs/
 > 目安であって規則ではない。**行数を理由に意味のない分割をしない。**
 
 ## 特殊ディレクトリ
+
+### site/ (公開する静的ページ)
+
+`.github/workflows/pages.yml` が `main` への push で GitHub Pages
+(<https://fuji18.github.io/lastwhen/>)に**そのまま**デプロイする。ビルドは挟まない。
+
+| パス | 公開 URL | 内容 |
+| --- | --- | --- |
+| `site/privacy-policy/index.html` | `/lastwhen/privacy-policy/` | プライバシーポリシー。**原稿はこのファイルだけ**(Markdown の複製を置かない) |
+
+**ここに置いたものはすべて公開される。** 設計資料やメモを置かない。
+ポリシーを改定したら、ページ末尾の最終改定日も更新する。
 
 ### .steering/ (ステアリングファイル)
 
