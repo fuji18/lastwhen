@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/category.dart';
 import '../../domain/item_icon.dart';
 import '../../domain/item_name.dart';
+import '../../domain/item_template.dart';
 import '../../state/add_item_result.dart';
 import '../../state/category_filter.dart';
 import '../../state/category_list_notifier.dart';
@@ -12,9 +13,11 @@ import '../item_name_error_text.dart';
 import '../widgets/item_icon_picker.dart';
 import '../widgets/item_category_picker.dart';
 import '../widgets/paper_background.dart';
+import '../widgets/item_template_chips.dart';
 
 /// 項目の登録画面。**必須の入力は項目名 1 つだけ**(F2)。アイコン(F14)は任意で、選ばなければ
 /// 既定アイコンになる。必須の入力を増やすと「30 秒以内に登録できる」という成功指標と衝突する。
+/// よくある項目(F17)を選ぶと項目名とアイコンが入る。登録済みと同名のものは出さない。
 class ItemAddScreen extends ConsumerStatefulWidget {
   /// 登録画面を作る。[initialCategoryId] は開いた時点で選ばれているカテゴリ
   /// (一覧の絞り込み)。
@@ -50,6 +53,12 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 一覧が未取得なら同名を判定できないので出さない(判断C)。
+    final items = ref.watch(itemListProvider).value;
+    final templates = items == null
+        ? const <ItemTemplate>[]
+        : availableItemTemplates(items.map((item) => item.name));
+
     return PaperBackground(
       child: Scaffold(
         appBar: AppBar(
@@ -86,6 +95,20 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
                   onSubmitted: (_) => _save(),
                 ),
                 const SizedBox(height: 24),
+                if (templates.isNotEmpty) ...[
+                  Text(
+                    'よくある項目から選ぶ',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  ItemTemplateChips(
+                    templates: templates,
+                    enabled: !_isSaving,
+                    tooltipBuilder: (template) => '${template.name}を入力',
+                    onPressed: _applyTemplate,
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 ItemIconPicker(
                   selected: _icon,
                   onChanged: (value) => setState(() => _icon = value),
@@ -115,6 +138,18 @@ class _ItemAddScreenState extends ConsumerState<ItemAddScreen> {
     if (_errorText != null) {
       setState(() => _errorText = null);
     }
+  }
+
+  /// よくある項目の名前とアイコンを入力欄に入れる。**保存はしない**(判断B)。カテゴリは変えない。
+  void _applyTemplate(ItemTemplate template) {
+    _controller.value = TextEditingValue(
+      text: template.name,
+      selection: TextSelection.collapsed(offset: template.name.length),
+    );
+    setState(() {
+      _icon = template.icon;
+      _errorText = null;
+    });
   }
 
   Future<void> _save() async {
