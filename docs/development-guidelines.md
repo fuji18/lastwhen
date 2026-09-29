@@ -295,6 +295,73 @@ devcontainer で回せる代替は `test/ui/performance_test.dart`。
 この値はデバッグ JIT とホスト性能の影響を受け、**実機基準の代わりにはならない**。
 参考時間の assert は 5 秒の安全網のみとし、PR ボディでも実機計測値と区別する。
 
+## リリースビルド(Android)
+
+### 署名
+
+release は `android/key.properties` に書いたアップロード鍵で署名する
+(Play App Signing を使い、配信用の鍵は Google が持つ)。
+
+```properties
+storePassword=...
+keyPassword=...
+keyAlias=upload
+storeFile=/絶対パス/upload-keystore.jks
+```
+
+- `key.properties` が無い環境(devcontainer の通常作業・CI)では、release は
+  **debug 鍵で署名される**(Gradle が警告を出す)。性能計測の release ビルドを壊さないため。
+  Play は debug 署名のアップロードを拒否するので、誤って出すことはない
+- 鍵の作成(初回のみ):
+
+  ```bash
+  keytool -genkey -v -keystore /絶対パス/upload-keystore.jks \
+    -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+  ```
+
+### 鍵の保管方針
+
+- **鍵ファイルと `key.properties` をリポジトリに置かない。** `.gitignore` 済み
+  (`android/key.properties`・`*.jks`・`*.keystore`)。鍵ファイルはリポジトリの外に置き、
+  `storeFile` は絶対パスで書く
+- **控えを 2 箇所に取る**(パスワードマネージャ + オフライン媒体)。パスワードも同じ場所に保管する
+- 鍵をなくしてもアプリの更新は続けられるが、Play Console でアップロード鍵の
+  リセットを申請する手続きが要る
+- 鍵そのもの・パスワード・保管場所の具体的なパスを docs・Issue・PR に書かない
+
+### バージョンの運用
+
+`pubspec.yaml` の `version: x.y.z+N` が versionName(`x.y.z`)と versionCode(`N`)になる。
+
+| 変更 | 上げ方 |
+| --- | --- |
+| 不具合の修正だけ | `z` を上げる |
+| 機能の追加・変更 | `y` を上げ、`z` を 0 に戻す |
+| 記録の互換性を崩すほどの大きな変更 | `x` を上げる |
+
+- **`N` は Play にアップロードするたびに必ず 1 以上増やす。** 同じ値は二度受け付けられず、
+  下げることもできない。`x.y.z` を戻しても `N` は戻さない
+- バージョンはリリース用の PR で上げる。機能 PR では触らない
+
+### 難読化
+
+**`--obfuscate` / `--split-debug-info` は使わない。** コードに守るべき秘密が無く
+(外部通信なし・API キーなし)、クラッシュ収集も無いため、得るものが無く、
+シンボルファイルを保管し続ける手間だけが残る。
+
+### リリースビルドの手順
+
+```bash
+flutter build appbundle --release
+# 証明書がアップロード鍵のものか確かめる(debug 鍵なら Owner が "CN=Android Debug")
+keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab
+```
+
+- targetSdk は `flutter.targetSdkVersion` に任せる。Flutter を上げたときに、
+  **Play の要件(新規アプリと更新の最低 API レベル)を満たすか**を確かめる
+- **リリースビルドのログに項目名を出さない。** `developer.log` は release では出力されない。
+  実機で `adb logcat` を見て、項目名が出ていないことを確かめる
+
 ## コードレビュー基準
 
 ### レビューポイント

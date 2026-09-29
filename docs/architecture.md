@@ -177,7 +177,8 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
   認証情報・個人識別情報を含まない
 - **アクセス制御**: DB はアプリのサンドボックス内に置く。外部ストレージへ書かない
 - **機密情報管理**: アプリに API キー・トークンの類を含めない(外部通信がないため不要)。
-  署名鍵は `.gitignore` で追跡対象外(`android/key.properties`・`*.jks`・`*.p12`)
+  署名鍵は `.gitignore` で追跡対象外(`android/key.properties`・`*.jks`・`*.p12`)。
+  保管方針と release 署名の手順は `docs/development-guidelines.md`「リリースビルド(Android)」
 
 ### 入力検証
 
