@@ -282,6 +282,19 @@ MVP はアプリ独自のバックアップを持たない。OS の自動バッ�
 > iOS のビルドと実機確認は macOS 上で別途行う。**これはリリース計画上の制約**として、
 > ストア申請の準備段階までに手段を確保する必要がある。
 
+### 配布(Android)
+
+#69 で確定した、Android の公開に要る識別子とアカウント。
+
+| 項目 | 値 | 備考 |
+| --- | --- | --- |
+| applicationId | `com.github.fuji18.lastwhen` | **公開後は変えられない。** 開発者が持っている GitHub アカウントを逆ドメインにした名前(持っていないドメインの名前を使わない)。`namespace` と `MainActivity` のパッケージも同じ値にそろえる(`android/app/build.gradle.kts`) |
+| Play Console のアカウント | **組織** | 個人アカウントに課されるクローズドテストの要件(12 人以上・14 日間)はかからない。登録には D-U-N-S 番号が要る |
+| ストア掲載名 | 「LastWhen — 最後にいつ」 | 端末上のアプリ名(`android:label`)は `LastWhen`(`docs/product-requirements.md`「未決事項」の決定済み #3) |
+
+- 連絡先メールアドレスはリポジトリに書かない(Issue #69 のコメントで共有する)
+- iOS の Bundle ID は現状 `com.lastwhen.lastwhen` のままで、#75 で決める
+
 ### パフォーマンス制約
 
 - 起動時に DB マイグレーションが走る可能性があるため、起動時間の目標は
