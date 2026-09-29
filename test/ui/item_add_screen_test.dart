@@ -13,6 +13,7 @@ import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 import 'package:lastwhen/ui/widgets/item_category_picker.dart';
 import 'package:lastwhen/ui/widgets/item_icon_picker.dart';
+import 'package:lastwhen/ui/widgets/item_template_chips.dart';
 import 'package:lastwhen/ui/widgets/paper_background.dart';
 
 import '../support/fake_category_repository.dart';
@@ -261,9 +262,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
+    // カテゴリ選択欄にも ActionChip があるため、よくある項目の欄に絞る。
     expect(
       find.descendant(
-        of: find.byType(ItemAddScreen),
+        of: find.byType(ItemTemplateChips),
         matching: find.byType(ActionChip),
       ),
       findsNWidgets(5),
@@ -280,6 +282,6 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.text('よくある項目から選ぶ'), findsNothing);
-    expect(find.byType(ActionChip), findsNothing);
+    expect(find.byType(ItemTemplateChips), findsNothing);
   });
 }

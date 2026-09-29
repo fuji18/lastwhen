@@ -39,4 +39,5 @@
 - 計画と実績の差分: なし。Codex への 1 回の全体委託で tasklist 15/15(判断待ち 0)。初回は `.claude/settings.local.json` が機密検査に掛かり `exit 2`、ユーザーが内容を確認して ACK し再実行した
 - 検証: 委託先は変更した Dart ファイルの format・analyze を通過。`flutter test` は sandbox で回せないため未実施。モード B のため `/check` と `code-reviewer` も回さず CI に委ねる
 - 学んだこと: `design.md` にコード断片・テスト手順・既存テストへの影響(finder の衝突)まで書くと、UI を含むチケットでも 1 回で通る
+- CI 修正: `item_add_screen_test.dart` のよくある項目の 2 件が CI で失敗。カテゴリ選択欄にも `ActionChip`(カテゴリの追加)があり、design.md §6-3 が `ActionChip` を数えるよう指示していたため(設計書の誤り)。finder を `ItemTemplateChips` に絞って修正(全 833 件 pass・analyze 0 件)
 - 次回への改善提案: `.claude/settings.local.json` は常に存在するため、委託のたびに ACK が要る。denylist の扱い(内容で判定するか)を検討する
