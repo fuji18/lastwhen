@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/category.dart';
+import '../../domain/item_template.dart';
+import '../../state/add_item_result.dart';
 import '../../state/category_filter.dart';
 import '../../state/category_list_notifier.dart';
 import '../../state/item_list_notifier.dart';
@@ -84,6 +86,8 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
           AsyncData(:final value) when value.isEmpty => EmptyState(
             onAddPressed: () =>
                 _openAddScreen(context, initialCategoryId: filter),
+            onTemplatePressed: (template) =>
+                _addTemplate(template, categoryId: filter),
           ),
           AsyncData(:final value) => _buildList(value, categories, filter),
           AsyncError() => LoadError(
@@ -103,6 +107,27 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
             )
           : null,
     );
+  }
+
+  /// よくある項目を確認なしで追加する(F17)。追加できたら true。
+  ///
+  /// カテゴリは「項目を追加」と同じく選択中の絞り込み(design.md 判断F)。
+  Future<bool> _addTemplate(
+    ItemTemplate template, {
+    CategoryId? categoryId,
+  }) async {
+    final result = await ref
+        .read(itemListProvider.notifier)
+        .addItem(template.name, icon: template.icon, categoryId: categoryId);
+    if (result is AddItemSucceeded) {
+      return true;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存できませんでした。もう一度お試しください')));
+    }
+    return false;
   }
 
   Widget _buildList(

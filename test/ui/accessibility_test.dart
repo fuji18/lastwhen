@@ -132,6 +132,20 @@ void main() {
   }
 
   group('アクセシビリティ', () {
+    testWidgets('文字サイズ 200% で空状態のよくある項目が押せる', (tester) async {
+      _setScreenSize(tester);
+      await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final chip = find.widgetWithText(ActionChip, '布団干し');
+      await tester.ensureVisible(chip);
+      await tester.pumpAndSettle();
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(find.byType(ItemCard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     test('コントラスト比が light / dark の全ペアで WCAG AA を満たす', () {
       double linear(double channel) => channel <= 0.04045
           ? channel / 12.92

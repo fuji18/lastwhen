@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
+import 'package:lastwhen/domain/item_icon.dart';
+import 'package:lastwhen/domain/item_template.dart';
 import 'package:lastwhen/domain/item_name.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/item_name_error_text.dart';
@@ -228,5 +230,56 @@ void main() {
   test('入力拒否の理由を入力欄の文言に変換する', () {
     expect(itemNameErrorText(ItemNameReason.empty), '項目名を入力してください');
     expect(itemNameErrorText(ItemNameReason.tooLong), '50文字以内で入力してください');
+  });
+  testWidgets('よくある項目のタップで項目名とアイコンが入り保存で登録される', (tester) async {
+    await openAddScreen(tester);
+    final chip = find.widgetWithText(ActionChip, '布団干し');
+    await tester.ensureVisible(chip);
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '布団干し',
+    );
+    expect(
+      tester.widget<ItemIconPicker>(find.byType(ItemIconPicker)).selected,
+      ItemIcon.bed,
+    );
+    expect(await repository.watchAll().first, isEmpty);
+    await tester.ensureVisible(find.text('保存'));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final items = await repository.watchAll().first;
+    expect(items, hasLength(1));
+    expect(items.single.name, '布団干し');
+    expect(items.single.icon, ItemIcon.bed);
+  });
+
+  testWidgets('登録済みと同名のよくある項目は出ない', (tester) async {
+    await repository.add('美容院', now: now);
+    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(ItemAddScreen),
+        matching: find.byType(ActionChip),
+      ),
+      findsNWidgets(5),
+    );
+    expect(find.widgetWithText(ActionChip, '美容院'), findsNothing);
+  });
+
+  testWidgets('よくある項目がすべて登録済みなら欄を出さない', (tester) async {
+    for (final template in itemTemplates) {
+      await repository.add(template.name, now: now);
+    }
+    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(find.text('よくある項目から選ぶ'), findsNothing);
+    expect(find.byType(ActionChip), findsNothing);
   });
 }

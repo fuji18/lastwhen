@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/clock.dart';
+import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/state/item_order.dart';
 import 'package:lastwhen/ui/screens/category_manage_screen.dart';
@@ -661,6 +662,64 @@ void main() {
       await tester.pumpAndSettle();
       expect(menuItem(tester, '名前順').checked, isTrue);
       expect(menuItem(tester, '経年順').checked, isFalse);
+    });
+  });
+  group('よくある項目(F17)', () {
+    testWidgets('空状態によくある項目が並ぶ', (tester) async {
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(EmptyState),
+          matching: find.byType(ActionChip),
+        ),
+        findsNWidgets(6),
+      );
+      expect(find.text('よくある項目からすぐ追加'), findsOneWidget);
+    });
+
+    testWidgets('1 タップで確認なしに未実施で追加される', (tester) async {
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ActionChip, '洗車'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(EmptyState), findsNothing);
+      expect(find.byType(ItemCard), findsOneWidget);
+      expect(find.widgetWithText(ItemCard, '洗車'), findsOneWidget);
+      expect(find.widgetWithText(ItemCard, '未実施'), findsOneWidget);
+      final items = await repository.watchAll().first;
+      expect(items, hasLength(1));
+      expect(items.single.name, '洗車');
+      expect(items.single.icon, ItemIcon.car);
+      expect(items.single.lastDoneAt, isNull);
+    });
+
+    testWidgets('二度押しで二重登録しない', (tester) async {
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      final chip = find.widgetWithText(ActionChip, '洗車');
+      await tester.tap(chip);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(await repository.watchAll().first, hasLength(1));
+    });
+
+    testWidgets('保存失敗なら SnackBar を出してもう一度押せる', (tester) async {
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      repository.writeError = StateError('write failed');
+      await tester.tap(find.widgetWithText(ActionChip, '洗車'));
+      await tester.pumpAndSettle();
+      expect(find.text('保存できませんでした。もう一度お試しください'), findsOneWidget);
+      expect(find.byType(EmptyState), findsOneWidget);
+      expect(
+        tester
+            .widget<ActionChip>(find.widgetWithText(ActionChip, '洗車'))
+            .onPressed,
+        isNotNull,
+      );
+      expect(await repository.watchAll().first, isEmpty);
     });
   });
 }
