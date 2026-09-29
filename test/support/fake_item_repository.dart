@@ -134,9 +134,12 @@ final class FakeItemRepository implements ItemRepository {
   }
 
   /// 実装の ORDER BY done_at DESC, rowid DESC と同じ位置に入れる。
-  DoneLogId _insertLog(ItemId id, DateTime doneAt) {
+  DoneLogId _insertLog(ItemId id, DateTime doneAt, {DoneLogId? logId}) {
     final logs = _doneLogs[id] ??= <_FakeDoneLog>[];
-    final log = _FakeDoneLog(DoneLogId('fake-log-${_logSequence++}'), doneAt);
+    final log = _FakeDoneLog(
+      logId ?? DoneLogId('fake-log-${_logSequence++}'),
+      doneAt,
+    );
     final index = logs.indexWhere((e) => !e.doneAt.isAfter(doneAt));
     logs.insert(index < 0 ? logs.length : index, log);
     return log.id;
@@ -178,6 +181,63 @@ final class FakeItemRepository implements ItemRepository {
       (item) => _copy(
         item,
         lastDoneAt: logs == null || logs.isEmpty ? null : logs.first.doneAt,
+        updatedAt: _normalize(now),
+      ),
+    );
+  }
+
+  @override
+  Future<List<DoneLog>> removeDoneLogsBetween(
+    ItemId id, {
+    required DateTime from,
+    required DateTime to,
+    required DateTime now,
+  }) async {
+    _failIfConfigured();
+    final logs = _doneLogs[id];
+    if (!_items.any((item) => item.id == id) || logs == null) {
+      return const <DoneLog>[];
+    }
+    final fromUtc = _normalize(from);
+    final toUtc = _normalize(to);
+    final removed = logs
+        .where((e) => !e.doneAt.isBefore(fromUtc) && e.doneAt.isBefore(toUtc))
+        .toList();
+    if (removed.isEmpty) {
+      return const <DoneLog>[];
+    }
+    logs.removeWhere(removed.contains);
+    _update(
+      id,
+      (item) => _copy(
+        item,
+        lastDoneAt: logs.isEmpty ? null : logs.first.doneAt,
+        updatedAt: _normalize(now),
+      ),
+    );
+    return [for (final e in removed) DoneLog(id: e.id, doneAt: e.doneAt)];
+  }
+
+  @override
+  Future<void> restoreDoneLogs(
+    ItemId id,
+    List<DoneLog> logs, {
+    required DateTime now,
+  }) async {
+    _failIfConfigured();
+    if (logs.isEmpty || !_items.any((item) => item.id == id)) {
+      return;
+    }
+    for (final log in logs) {
+      if (!(_doneLogs[id]?.any((e) => e.id == log.id) ?? false)) {
+        _insertLog(id, _normalize(log.doneAt), logId: log.id);
+      }
+    }
+    _update(
+      id,
+      (item) => _copy(
+        item,
+        lastDoneAt: _doneLogs[id]!.first.doneAt,
         updatedAt: _normalize(now),
       ),
     );

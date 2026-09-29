@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/item.dart';
 import '../state/item_view.dart';
+import '../state/delete_history_day_result.dart';
 import '../state/item_list_notifier.dart';
 import '../state/mark_done_result.dart';
 import '../state/record_past_date_result.dart';
@@ -78,6 +79,87 @@ void _undoRecordPastDate(
 ) {
   unawaited(() async {
     final result = await notifier.undoRecordPastDate(undo);
+    if (result is UndoFailed) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('取り消せませんでした。もう一度お試しください')),
+      );
+    }
+  }());
+}
+
+/// 記録の履歴から 1 日分の記録を削除し、取り消し導線を出す(#63)。
+///
+/// **確認ダイアログを出す**(削除には確認を入れる)。確認後の誤りは取り消しで救う。
+Future<void> deleteHistoryDayWithUndo(
+  BuildContext context,
+  ItemId id,
+  DoneHistoryEntry entry,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final notifier = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(itemListProvider.notifier);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('${entry.shortDateText}の記録を削除しますか?'),
+      content: const Text('この日の記録をすべて削除します。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('キャンセル'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
+          child: const Text('削除'),
+        ),
+      ],
+    ),
+  );
+  // バリアタップ・戻る操作は null。true 以外はすべて「削除しない」。
+  if (confirmed != true) {
+    return;
+  }
+  final result = await notifier.deleteHistoryDay(id, entry.dayKey);
+  switch (result) {
+    case DeleteHistoryDaySucceeded(:final undo):
+      // キューに積ませない。「直近 1 件のみ」を保つ(「やった」と同じ)。
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${entry.shortDateText}の記録を削除しました'),
+          // アクションを付けると persist が既定で true になり、4 秒で消えない。
+          persist: false,
+          action: SnackBarAction(
+            label: '取り消す',
+            onPressed: () => _undoDeleteHistoryDay(messenger, notifier, undo),
+          ),
+        ),
+      );
+    // 同時操作。何も出さない。
+    case DeleteHistoryDayIgnored():
+      break;
+    case DeleteHistoryDayFailed():
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('削除できませんでした。もう一度お試しください')),
+      );
+  }
+}
+
+/// 記録の削除を取り消す。失敗したら知らせる。
+void _undoDeleteHistoryDay(
+  ScaffoldMessengerState messenger,
+  ItemListNotifier notifier,
+  DeleteHistoryDayUndo undo,
+) {
+  unawaited(() async {
+    final result = await notifier.undoDeleteHistoryDay(undo);
     if (result is UndoFailed) {
       messenger.clearSnackBars();
       messenger.showSnackBar(

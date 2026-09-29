@@ -180,6 +180,106 @@ void main() {
     });
   });
 
+  group('記録の削除', () {
+    Future<void> ready(WidgetTester tester, {bool sameDayOnly = false}) async {
+      final item = await repository.add('美容院', now: now);
+      for (final date in [
+        if (!sameDayOnly) DateTime(2026, 9, 5, 12),
+        DateTime(2026, 9, 12, 12),
+        if (sameDayOnly) DateTime(2026, 9, 12, 23),
+      ]) {
+        await repository.addDoneLog(item.id, date.toUtc(), now: now);
+      }
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      await openDetail(tester, '美容院');
+    }
+
+    Future<void> confirm(WidgetTester tester) async {
+      final button = find.byTooltip('2026年9月12日の記録を削除');
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> delete(WidgetTester tester) async {
+      await confirm(tester);
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('各行の削除ボタンに日付つきのラベルがある', (tester) async {
+      await ready(tester);
+      expect(find.byTooltip('2026年9月12日の記録を削除'), findsOneWidget);
+      expect(find.byTooltip('2026年9月5日の記録を削除'), findsOneWidget);
+    });
+    testWidgets('確認をキャンセルすると履歴は変わらず結果も出さない', (tester) async {
+      await ready(tester);
+      final before = await repository.watchAll().first;
+      await confirm(tester);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('9月12日の記録を削除しますか?'), findsOneWidget);
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text('2026年9月12日'), findsOneWidget);
+      expect(await repository.watchAll().first, before);
+    });
+    testWidgets('削除で行が消え、取り消すと履歴と最後にやった日が戻る', (tester) async {
+      await ready(tester);
+      await delete(tester);
+      expect(find.text('2026年9月12日'), findsNothing);
+      expect(find.text('9月12日の記録を削除しました'), findsOneWidget);
+      expect(find.text('2026年9月5日（11日前）'), findsOneWidget);
+      await tester.tap(find.text('取り消す'));
+      await tester.pumpAndSettle();
+      expect(find.text('2026年9月12日'), findsOneWidget);
+      expect(find.text('2026年9月12日（4日前）'), findsOneWidget);
+    });
+    testWidgets('同じ暦日の 2 件がすべて消えると未実施と学習中になる', (tester) async {
+      await ready(tester, sameDayOnly: true);
+      await delete(tester);
+      expect(find.text('まだ記録がありません'), findsNWidgets(2));
+      expect(find.text('学習中'), findsOneWidget);
+      expect((await repository.watchAll().first).single.recentDoneAts, isEmpty);
+    });
+    testWidgets('削除の直前に書き込みが失敗すると履歴を保ちエラーを表示する', (tester) async {
+      await ready(tester);
+      await confirm(tester);
+      final before = await repository.watchAll().first;
+      repository.writeError = StateError('write failed');
+      await tester.tap(find.widgetWithText(TextButton, '削除'));
+      await tester.pumpAndSettle();
+      expect(find.text('削除できませんでした。もう一度お試しください'), findsOneWidget);
+      expect(find.text('2026年9月12日'), findsOneWidget);
+      expect(await repository.watchAll().first, before);
+    });
+    testWidgets('取り消し導線は 4 秒後に消える', (tester) async {
+      await ready(tester);
+      await delete(tester);
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.duration, const Duration(seconds: 4));
+      expect(snackBar.persist, isFalse);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+    });
+    test('historyDeleteButtonLabel は長い日付を含む', () {
+      expect(
+        historyDeleteButtonLabel(
+          DoneHistoryEntry(
+            dateText: '2026年9月12日',
+            shortDateText: '9月12日',
+            dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+          ),
+        ),
+        '2026年9月12日の記録を削除',
+      );
+    });
+  });
+
   group('メニュー', () {
     testWidgets('日付を指定して記録と編集があり削除は無い', (tester) async {
       final item = await repository.add('美容院', now: now);
@@ -336,7 +436,12 @@ void main() {
     test('historyEntrySemanticsLabel: 間隔ありは前回からを添える', () {
       expect(
         historyEntrySemanticsLabel(
-          const DoneHistoryEntry(dateText: '2026年9月12日', intervalDays: 7),
+          DoneHistoryEntry(
+            dateText: '2026年9月12日',
+            shortDateText: '9月12日',
+            dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+            intervalDays: 7,
+          ),
         ),
         '2026年9月12日、前回から7日',
       );
@@ -345,7 +450,11 @@ void main() {
     test('historyEntrySemanticsLabel: 間隔なしは日付のみ', () {
       expect(
         historyEntrySemanticsLabel(
-          const DoneHistoryEntry(dateText: '2026年9月12日'),
+          DoneHistoryEntry(
+            dateText: '2026年9月12日',
+            shortDateText: '9月12日',
+            dayKey: HistoryDayKey(DateTime.utc(2026, 9, 12)),
+          ),
         ),
         '2026年9月12日',
       );

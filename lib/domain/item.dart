@@ -9,6 +9,23 @@ extension type const ItemId(String value) {}
 /// 実施履歴 1 行の ID。取り消しで「追加した 1 行」を指すために使う(#49)。
 extension type const DoneLogId(String value) {}
 
+/// 実施履歴 1 行(#63)。暦日単位の削除を取り消すとき、消した行を元の ID・日時で戻すために使う。
+final class DoneLog {
+  const DoneLog({required this.id, required this.doneAt});
+
+  final DoneLogId id;
+
+  /// 実施日時(UTC)。
+  final DateTime doneAt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DoneLog && other.id == id && other.doneAt == doneAt;
+
+  @override
+  int get hashCode => Object.hash(id, doneAt);
+}
+
 /// 管理する生活行動 1 件。
 final class Item {
   const Item({

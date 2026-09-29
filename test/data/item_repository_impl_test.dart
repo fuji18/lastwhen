@@ -245,6 +245,140 @@ void _runSharedScenarios(String label, ItemRepository Function() create) {
       repository = create();
     });
 
+    group('範囲の履歴の削除と復元', () {
+      late ItemId id;
+      late DoneLogId first;
+      late DoneLogId second;
+      final after = t2.add(const Duration(days: 1));
+      setUp(() async {
+        id = (await repository.add('項目', now: t0)).id;
+        first = (await repository.addDoneLog(id, t0, now: t0))!;
+        second = (await repository.addDoneLog(id, t1, now: t0))!;
+        await repository.addDoneLog(id, t2, now: t0);
+      });
+
+      test('範囲内の 2 行を新しい順で返し、範囲外を残す', () async {
+        final removed = await repository.removeDoneLogsBetween(
+          id,
+          from: t0,
+          to: t2,
+          now: after,
+        );
+        expect(removed, [
+          DoneLog(id: second, doneAt: t1),
+          DoneLog(id: first, doneAt: t0),
+        ]);
+        final item = (await repository.watchAll().first).single;
+        expect(item.recentDoneAts, [t2]);
+        expect(item.lastDoneAt, t2);
+        expect(item.updatedAt, after);
+      });
+      test('最新の範囲を消すと最終実施日時は残りの最大値になる', () async {
+        await repository.removeDoneLogsBetween(
+          id,
+          from: t2,
+          to: after,
+          now: after,
+        );
+        expect((await repository.watchAll().first).single.lastDoneAt, t1);
+      });
+      test('全件を消すと未実施になる', () async {
+        await repository.removeDoneLogsBetween(
+          id,
+          from: t0,
+          to: after,
+          now: after,
+        );
+        final item = (await repository.watchAll().first).single;
+        expect(item.lastDoneAt, isNull);
+        expect(item.recentDoneAts, isEmpty);
+      });
+      test('from ちょうどを消し、to ちょうどは残す', () async {
+        final removed = await repository.removeDoneLogsBetween(
+          id,
+          from: t0.toLocal(),
+          to: t1.toLocal(),
+          now: after,
+        );
+        expect(removed, [DoneLog(id: first, doneAt: t0)]);
+        expect((await repository.watchAll().first).single.recentDoneAts, [
+          t2,
+          t1,
+        ]);
+      });
+      test('該当なしなら日時も更新しない', () async {
+        final before = await repository.watchAll().first;
+        expect(
+          await repository.removeDoneLogsBetween(
+            id,
+            from: after,
+            to: after.add(const Duration(days: 1)),
+            now: after,
+          ),
+          isEmpty,
+        );
+        expect(await repository.watchAll().first, before);
+      });
+      test('存在しない項目の削除は他項目に影響しない', () async {
+        final before = await repository.watchAll().first;
+        expect(
+          await repository.removeDoneLogsBetween(
+            const ItemId('missing'),
+            from: t0,
+            to: after,
+            now: after,
+          ),
+          isEmpty,
+        );
+        expect(await repository.watchAll().first, before);
+      });
+      test('復元は元の ID・日時に戻し、更新日時を進める', () async {
+        final before = (await repository.watchAll().first).single;
+        final removed = await repository.removeDoneLogsBetween(
+          id,
+          from: t0,
+          to: after,
+          now: t2,
+        );
+        await repository.restoreDoneLogs(id, removed, now: after);
+        final restored = (await repository.watchAll().first).single;
+        expect(restored.recentDoneAts, before.recentDoneAts);
+        expect(restored.lastDoneAt, before.lastDoneAt);
+        expect(restored.updatedAt, after);
+        expect(
+          await repository.removeDoneLogsBetween(
+            id,
+            from: t0,
+            to: after,
+            now: after,
+          ),
+          removed,
+        );
+      });
+      test('二重に復元しても履歴は増えない', () async {
+        final removed = await repository.removeDoneLogsBetween(
+          id,
+          from: t0,
+          to: after,
+          now: t2,
+        );
+        await repository.restoreDoneLogs(id, removed, now: after);
+        await repository.restoreDoneLogs(id, removed, now: after);
+        expect((await repository.watchAll().first).single.recentDoneAts, [
+          t2,
+          t1,
+          t0,
+        ]);
+      });
+      test('存在しない項目の復元は他項目に影響しない', () async {
+        final before = await repository.watchAll().first;
+        await repository.restoreDoneLogs(const ItemId('missing'), [
+          DoneLog(id: first, doneAt: t0),
+        ], now: after);
+        expect(await repository.watchAll().first, before);
+      });
+    });
+
     test('未実施の項目に過去日で記録すると最終実施日になる', () async {
       final item = await repository.add('項目', now: t0);
       final logId = await repository.addDoneLog(item.id, t0, now: t2);

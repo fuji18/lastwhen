@@ -66,4 +66,27 @@ abstract interface class ItemRepository {
     DoneLogId logId, {
     required DateTime now,
   });
+
+  /// [from] 以上 [to] 未満の履歴をすべて消し、最終実施日時を残りの履歴の最大値(無ければ null)に
+  /// 揃える(#63)。`updatedAt` は [now]。**同一トランザクションで書く。**
+  ///
+  /// [from] / [to] はどのタイムゾーンの `DateTime` でもよい(実装が UTC に直して比べる)。
+  /// 消した行を**新しい順**で返す。対象の項目や該当する行が無ければ何も書かずに空を返す(例外にしない)。
+  Future<List<DoneLog>> removeDoneLogsBetween(
+    ItemId id, {
+    required DateTime from,
+    required DateTime to,
+    required DateTime now,
+  });
+
+  /// [removeDoneLogsBetween] の取り消し。[logs] を元の ID・日時で戻し、最終実施日時を履歴の最大値に
+  /// 揃える。`updatedAt` は [now]。**同一トランザクションで書く。**
+  ///
+  /// 対象の項目が無い、または [logs] が空なら何も書かない(例外にしない)。同じ ID の行が既にあれば
+  /// その行は飛ばす(二重に戻さない)。
+  Future<void> restoreDoneLogs(
+    ItemId id,
+    List<DoneLog> logs, {
+    required DateTime now,
+  });
 }

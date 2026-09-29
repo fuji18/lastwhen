@@ -17,12 +17,43 @@ import '../domain/item_icon.dart';
 /// シンボル(曜日名・月名)を引かず、`initializeDateFormatting` も要らない。
 final DateFormat _lastDoneFormat = DateFormat('y年M月d日');
 
+/// 削除の確認・結果の文言用。ロケールを渡さない理由は `_lastDoneFormat` と同じ。
+final DateFormat _shortDateFormat = DateFormat('M月d日');
+
+/// 履歴 1 行が指す暦日(#63)。**UI はこの中身を読まない。**
+///
+/// 受け取って `ItemListNotifier.deleteHistoryDay` に返すだけ(`MarkDoneUndo` と同じ約束)。
+final class HistoryDayKey {
+  const HistoryDayKey(this.date);
+
+  /// ローカルの暦日を `calendarDateOf` で UTC の点にしたもの。年・月・日だけが意味を持つ。
+  final DateTime date;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HistoryDayKey && other.date == date;
+
+  @override
+  int get hashCode => date.hashCode;
+}
+
 /// 記録の履歴 1 行(暦日単位)。**`DateTime` を持たない**(ItemView と同じ理由)。
 final class DoneHistoryEntry {
-  const DoneHistoryEntry({required this.dateText, this.intervalDays});
+  const DoneHistoryEntry({
+    required this.dateText,
+    required this.shortDateText,
+    required this.dayKey,
+    this.intervalDays,
+  });
 
   /// 記録した日(`2026年9月12日`)。`_lastDoneFormat` で整形する。
   final String dateText;
+
+  /// 記録した日の短い形。削除の確認と結果の文言に使う。
+  final String shortDateText;
+
+  /// 削除の対象を状態管理層へ返すためのキー。
+  final HistoryDayKey dayKey;
 
   /// 1 つ前(古い側)の記録からの暦日の差。表示範囲で最も古い行は null。
   final int? intervalDays;
@@ -31,10 +62,13 @@ final class DoneHistoryEntry {
   bool operator ==(Object other) =>
       other is DoneHistoryEntry &&
       other.dateText == dateText &&
+      other.shortDateText == shortDateText &&
+      other.dayKey == dayKey &&
       other.intervalDays == intervalDays;
 
   @override
-  int get hashCode => Object.hash(dateText, intervalDays);
+  int get hashCode =>
+      Object.hash(dateText, shortDateText, dayKey, intervalDays);
 }
 
 /// UI が描画に必要とするものだけを持つ表示モデル。
@@ -74,6 +108,8 @@ final class ItemView {
       for (var i = 0; i < dates.length; i++)
         DoneHistoryEntry(
           dateText: _lastDoneFormat.format(dates[i]),
+          shortDateText: _shortDateFormat.format(dates[i]),
+          dayKey: HistoryDayKey(dates[i]),
           intervalDays: i < intervals.length ? intervals[i] : null,
         ),
     ];
