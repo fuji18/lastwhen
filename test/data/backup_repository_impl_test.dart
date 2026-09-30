@@ -74,6 +74,39 @@ void main() {
     expect(destinationEncoded, sourceEncodedAgain);
   });
 
+  test('並び替えたカテゴリの順が書き出し → 復元で保たれる', () async {
+    final sourceDb = _createDatabase();
+    final sourceCategoryRepository = CategoryRepositoryImpl(sourceDb);
+    await _seedScenario(sourceDb);
+
+    final categories = await sourceCategoryRepository.watchAll().first;
+    final byName = {for (final c in categories) c.name: c.id};
+    final reordered = [
+      byName['テストカテゴリ']!,
+      byName['生活']!,
+      byName['健康']!,
+      byName['趣味']!,
+      byName['その他']!,
+    ];
+    await sourceCategoryRepository.reorder(reordered);
+
+    final sourceRepository = BackupRepositoryImpl(sourceDb);
+    final snapshot = await sourceRepository.readAll();
+
+    final destinationDb = _createDatabase();
+    final destinationRepository = BackupRepositoryImpl(destinationDb);
+    await destinationRepository.replaceAll(snapshot);
+
+    final destinationCategories = await CategoryRepositoryImpl(destinationDb)
+        .watchAll()
+        .first;
+    final expectedOrder = await sourceCategoryRepository.watchAll().first;
+    expect(
+      destinationCategories.map((c) => c.name),
+      expectedOrder.map((c) => c.name),
+    );
+  });
+
   test('復元先の lastDoneAt は記録の最大値(無ければ null)と一致する', () async {
     final sourceDb = _createDatabase();
     await _seedScenario(sourceDb);

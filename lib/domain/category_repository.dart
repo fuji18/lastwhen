@@ -5,7 +5,7 @@ abstract interface class CategoryRepository {
   /// 表示順(sort_order 昇順、同値は id 昇順)に並んだ全カテゴリを流す。
   Stream<List<Category>> watchAll();
 
-  /// カテゴリを追加する。id は UUID v4、sort_order は MAX + 1(空なら 0)。
+  /// カテゴリを追加する。id は UUID v4、sort_order は MAX + 1(空なら 0)。並び替えの後も末尾に入る。
   Future<Category> add(String name);
 
   /// 名前を変える。対象が無ければ何もしない(例外にしない)。
@@ -13,4 +13,10 @@ abstract interface class CategoryRepository {
 
   /// カテゴリを削除する。**そのカテゴリの項目は未分類になる。項目と記録は消えない。**
   Future<void> delete(CategoryId id);
+
+  /// 表示順を [orderedIds] の順に振り直す(sort_order = 0, 1, 2, …)。1 トランザクションで行う。
+  ///
+  /// [orderedIds] の集合が現在の全カテゴリと一致しない(件数・重複・過不足)ときは
+  /// [ArgumentError] を投げ、何も書かない。
+  Future<void> reorder(List<CategoryId> orderedIds);
 }

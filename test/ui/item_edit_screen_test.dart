@@ -47,6 +47,10 @@ final class _FailingWatchCategoryRepository implements CategoryRepository {
 
   @override
   Future<void> delete(CategoryId id) => throw UnimplementedError();
+
+  @override
+  Future<void> reorder(List<CategoryId> orderedIds) =>
+      throw UnimplementedError();
 }
 
 void main() {

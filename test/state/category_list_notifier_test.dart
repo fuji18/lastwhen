@@ -38,6 +38,10 @@ final class _FlakyWatchCategoryRepository implements CategoryRepository {
 
   @override
   Future<void> delete(CategoryId id) => throw UnimplementedError();
+
+  @override
+  Future<void> reorder(List<CategoryId> orderedIds) =>
+      throw UnimplementedError();
 }
 
 Future<ProviderContainer> _container(FakeCategoryRepository repository) async {
@@ -224,6 +228,43 @@ void main() {
           .read(categoryListProvider.notifier)
           .deleteCategory(category.id);
       expect(result, isA<DeleteCategoryFailed>());
+    });
+  });
+
+  group('reorderCategories', () {
+    test('成功すると Succeeded を返し、その後の一覧が新しい順', () async {
+      final a = await repository.add('健康');
+      final b = await repository.add('趣味');
+      final container = await _container(repository);
+      final result = await container
+          .read(categoryListProvider.notifier)
+          .reorderCategories([b.id, a.id]);
+      expect(result, isA<ReorderCategorySucceeded>());
+      expect((await repository.watchAll().first).map((c) => c.name), [
+        '趣味',
+        '健康',
+      ]);
+    });
+
+    test('writeError を設定すると Failed を返し、並びは変わらない', () async {
+      final a = await repository.add('健康');
+      final b = await repository.add('趣味');
+      final container = await _container(repository);
+      repository.writeError = StateError('write failed');
+      final result = await container
+          .read(categoryListProvider.notifier)
+          .reorderCategories([b.id, a.id]);
+      expect(result, isA<ReorderCategoryFailed>());
+    });
+
+    test('集合が合わない列(1 件欠け)を渡すと Failed になる', () async {
+      final a = await repository.add('健康');
+      await repository.add('趣味');
+      final container = await _container(repository);
+      final result = await container
+          .read(categoryListProvider.notifier)
+          .reorderCategories([a.id]);
+      expect(result, isA<ReorderCategoryFailed>());
     });
   });
 

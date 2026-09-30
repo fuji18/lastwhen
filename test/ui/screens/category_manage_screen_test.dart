@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/state/providers.dart';
@@ -20,7 +22,14 @@ void main() {
 
   Widget app() => ProviderScope(
     overrides: [categoryRepositoryProvider.overrideWithValue(repository)],
-    child: const MaterialApp(home: CategoryManageScreen()),
+    child: const MaterialApp(
+      // ドラッグ並び替えの組み込みカスタム操作(先頭に移動・上に移動…)は
+      // ja ロケールで日本語文言になる(design.md 判断7)。
+      locale: Locale('ja'),
+      supportedLocales: [Locale('ja')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: CategoryManageScreen(),
+    ),
   );
 
   testWidgets('カテゴリが一覧に表示される', (tester) async {
@@ -126,5 +135,88 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('削除できませんでした。もう一度お試しください'), findsOneWidget);
     expect(find.text('健康'), findsOneWidget);
+  });
+
+  testWidgets('ドラッグハンドルで並び替えると保存され、その順で表示される', (tester) async {
+    await repository.add('健康');
+    await repository.add('趣味');
+    await repository.add('その他');
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final handles = find.byIcon(Icons.drag_handle);
+    expect(handles, findsNWidgets(3));
+
+    // 先頭行のハンドルを下へドラッグして最後尾へ移動させる。
+    await tester.drag(handles.first, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    final names = (await repository.watchAll().first)
+        .map((c) => c.name)
+        .toList();
+    expect(names, ['趣味', 'その他', '健康']);
+
+    final texts = [
+      '趣味',
+      'その他',
+      '健康',
+    ].map((name) => tester.getTopLeft(find.text(name)).dy).toList();
+    expect(texts, [texts[0], texts[1], texts[2]]..sort());
+  });
+
+  testWidgets('並び替えに失敗すると SnackBar が出て並びは変わらない', (tester) async {
+    await repository.add('健康');
+    await repository.add('趣味');
+    await repository.add('その他');
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    repository.writeError = StateError('write failed');
+
+    final handles = find.byIcon(Icons.drag_handle);
+    await tester.drag(handles.first, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('並び替えを保存できませんでした。もう一度お試しください'), findsOneWidget);
+    final names = (await repository.watchAll().first)
+        .map((c) => c.name)
+        .toList();
+    expect(names, ['健康', '趣味', 'その他']);
+  });
+
+  testWidgets('各行に読み上げの並び替え操作がある', (tester) async {
+    await repository.add('健康');
+    await repository.add('趣味');
+    await repository.add('その他');
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    final handle = tester.ensureSemantics();
+
+    final node = tester.getSemantics(find.text('趣味'));
+    final actionIds =
+        node.getSemanticsData().customSemanticsActionIds ?? const <int>[];
+    final labels = actionIds
+        .map((id) => CustomSemanticsAction.getAction(id)!.label)
+        .toSet();
+    expect(labels, containsAll(['上に移動', '下に移動']));
+
+    const downAction = CustomSemanticsAction(label: '下に移動');
+    final downActionId = CustomSemanticsAction.getIdentifier(downAction);
+    // RendererBinding.rootPipelineOwner 経由では実行してもテスト用のセマンティクスツリーに
+    // 反映されなかった(実測)。テストバインディングが直接持つ pipelineOwner を使う。
+    // ignore: deprecated_member_use
+    tester.binding.pipelineOwner.semanticsOwner!.performAction(
+      node.id,
+      SemanticsAction.customAction,
+      downActionId,
+    );
+    await tester.pumpAndSettle();
+
+    final names = (await repository.watchAll().first)
+        .map((c) => c.name)
+        .toList();
+    expect(names, ['健康', 'その他', '趣味']);
+
+    handle.dispose();
   });
 }

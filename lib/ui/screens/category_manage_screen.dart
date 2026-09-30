@@ -9,7 +9,7 @@ import '../widgets/category_name_dialog.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/paper_background.dart';
 
-/// カテゴリの管理画面。カテゴリの追加・名前変更・削除を行う唯一の入口(F13)。
+/// カテゴリの管理画面。カテゴリの追加・名前変更・削除・並び替えを行う唯一の入口(F13)。
 class CategoryManageScreen extends ConsumerWidget {
   /// 管理画面を作る。
   const CategoryManageScreen({super.key});
@@ -87,19 +87,32 @@ class _LoadError extends StatelessWidget {
   }
 }
 
-class _CategoryList extends ConsumerWidget {
+class _CategoryList extends ConsumerStatefulWidget {
   const _CategoryList({required this.categories});
 
   final List<Category> categories;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ListView.builder(
+  ConsumerState<_CategoryList> createState() => _CategoryListState();
+}
+
+class _CategoryListState extends ConsumerState<_CategoryList> {
+  bool _reordering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReorderableListView.builder(
       padding: const EdgeInsets.only(bottom: 88),
-      itemCount: categories.length,
+      buildDefaultDragHandles: false,
+      itemCount: widget.categories.length,
       itemBuilder: (context, index) {
-        final category = categories[index];
+        final category = widget.categories[index];
         return ListTile(
+          key: ValueKey(category.id),
+          leading: ReorderableDragStartListener(
+            index: index,
+            child: const ExcludeSemantics(child: Icon(Icons.drag_handle)),
+          ),
           title: Text(category.name),
           onTap: () => _openRenameDialog(context, ref, category),
           trailing: IconButton(
@@ -109,7 +122,27 @@ class _CategoryList extends ConsumerWidget {
           ),
         );
       },
+      onReorderItem: (oldIndex, newIndex) => _reorder(oldIndex, newIndex),
     );
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (_reordering) return;
+    if (oldIndex == newIndex) return;
+    final ids = [for (final c in widget.categories) c.id];
+    final moved = ids.removeAt(oldIndex);
+    ids.insert(newIndex, moved);
+    setState(() => _reordering = true);
+    final result = await ref
+        .read(categoryListProvider.notifier)
+        .reorderCategories(ids);
+    if (!mounted) return;
+    setState(() => _reordering = false);
+    if (result is ReorderCategoryFailed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('並び替えを保存できませんでした。もう一度お試しください')),
+      );
+    }
   }
 }
 

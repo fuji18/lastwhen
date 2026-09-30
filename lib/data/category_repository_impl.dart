@@ -70,6 +70,31 @@ final class CategoryRepositoryImpl implements CategoryRepository {
       )..where((t) => t.id.equals(id.value))).go();
     });
   }
+
+  @override
+  Future<void> reorder(List<CategoryId> orderedIds) {
+    // 集合の検査と全行の UPDATE を同じトランザクションに入れる。途中で失敗しても
+    // sort_order が中途半端に残らない。
+    return _db.transaction(() async {
+      final rows = await _db.select(_db.categories).get();
+      final current = rows.map((r) => r.id).toSet();
+      final requested = orderedIds.map((id) => id.value).toList();
+      if (requested.length != current.length ||
+          requested.toSet().length != requested.length ||
+          !current.containsAll(requested)) {
+        throw ArgumentError.value(
+          orderedIds,
+          'orderedIds',
+          '現在のカテゴリの集合と一致しません',
+        );
+      }
+      for (var i = 0; i < requested.length; i++) {
+        await (_db.update(_db.categories)
+              ..where((t) => t.id.equals(requested[i])))
+            .write(CategoriesCompanion(sortOrder: Value(i)));
+      }
+    });
+  }
 }
 
 /// Drift の行をドメインモデルへ変換する。

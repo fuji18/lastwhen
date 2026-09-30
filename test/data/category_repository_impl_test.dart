@@ -115,4 +115,114 @@ void main() {
     final categories = await repository.watchAll().first;
     expect(categories, hasLength(4));
   });
+
+  test('reorder で sort_order が渡した順の 0 始まりに振り直される', () async {
+    final categories = await repository.watchAll().first;
+    final byName = {for (final c in categories) c.name: c.id};
+    final newOrder = [
+      byName['その他']!,
+      byName['生活']!,
+      byName['趣味']!,
+      byName['健康']!,
+    ];
+
+    await repository.reorder(newOrder);
+
+    final updated = await repository.watchAll().first;
+    expect(updated.map((c) => c.name), ['その他', '生活', '趣味', '健康']);
+    expect(updated.map((c) => c.sortOrder), [0, 1, 2, 3]);
+  });
+
+  test('reorder の後に add すると末尾に入る', () async {
+    final categories = await repository.watchAll().first;
+    final byName = {for (final c in categories) c.name: c.id};
+    await repository.reorder([
+      byName['その他']!,
+      byName['生活']!,
+      byName['趣味']!,
+      byName['健康']!,
+    ]);
+
+    final added = await repository.add('新規');
+
+    expect(added.sortOrder, 4);
+    final updated = await repository.watchAll().first;
+    expect(updated.last.name, '新規');
+    expect(updated.last.sortOrder, 4);
+  });
+
+  test('集合が一致しない reorder は ArgumentError で何も変えない', () async {
+    final categories = await repository.watchAll().first;
+    final ids = categories.map((c) => c.id).toList();
+
+    // (a) 1 件欠けた列
+    await expectLater(
+      repository.reorder(ids.sublist(0, 3)),
+      throwsArgumentError,
+    );
+
+    // (b) 存在しない id を含む列
+    await expectLater(
+      repository.reorder([...ids, const CategoryId('missing')]),
+      throwsArgumentError,
+    );
+
+    // (c) 重複を含む列
+    await expectLater(
+      repository.reorder([ids[0], ids[0], ids[1], ids[2]]),
+      throwsArgumentError,
+    );
+
+    final untouched = await repository.watchAll().first;
+    expect(untouched.map((c) => c.name), ['生活', '健康', '趣味', 'その他']);
+    expect(untouched.map((c) => c.sortOrder), [0, 1, 2, 3]);
+  });
+
+  test('reorder が途中で失敗すると sort_order は元のまま(ロールバック)', () async {
+    final categories = await repository.watchAll().first;
+    final byName = {for (final c in categories) c.name: c.id};
+    final newOrder = [
+      byName['その他']!,
+      byName['生活']!,
+      byName['趣味']!,
+      byName['健康']!,
+    ];
+    final thirdId = newOrder[2].value;
+
+    await db.customStatement('''
+CREATE TRIGGER fail_reorder BEFORE UPDATE OF sort_order ON categories
+WHEN NEW.id = '$thirdId'
+BEGIN SELECT RAISE(ABORT, 'boom'); END
+''');
+
+    await expectLater(repository.reorder(newOrder), throwsA(anything));
+
+    final untouched = await repository.watchAll().first;
+    expect(untouched.map((c) => c.name), ['生活', '健康', '趣味', 'その他']);
+    expect(untouched.map((c) => c.sortOrder), [0, 1, 2, 3]);
+  });
+
+  test('reorder 後に watchAll が新しい順を再送出する', () async {
+    final categories = await repository.watchAll().first;
+    final byName = {for (final c in categories) c.name: c.id};
+    final newOrder = [
+      byName['その他']!,
+      byName['生活']!,
+      byName['趣味']!,
+      byName['健康']!,
+    ];
+
+    final expectation = expectLater(
+      repository.watchAll(),
+      emitsThrough(
+        predicate<List<Category>>(
+          (list) =>
+              list.map((c) => c.name).toList().join(',') == 'その他,生活,趣味,健康',
+        ),
+      ),
+    );
+    await pumpEventQueue();
+    await repository.reorder(newOrder);
+    await expectation;
+  });
 }

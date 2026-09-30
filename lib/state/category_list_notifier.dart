@@ -134,4 +134,22 @@ class CategoryListNotifier extends StreamNotifier<List<Category>> {
       return const DeleteCategoryFailed();
     }
   }
+
+  /// カテゴリの並びを [orderedIds] の順にする。**並びの更新は購読に任せる**(楽観的に書き換えない)。
+  Future<ReorderCategoryResult> reorderCategories(
+    List<CategoryId> orderedIds,
+  ) async {
+    try {
+      await ref.read(categoryRepositoryProvider).reorder(orderedIds);
+      return const ReorderCategorySucceeded();
+    } catch (error, stackTrace) {
+      developer.log(
+        'カテゴリの並び替えに失敗しました',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const ReorderCategoryFailed();
+    }
+  }
 }
