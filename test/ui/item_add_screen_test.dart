@@ -234,17 +234,17 @@ void main() {
   });
   testWidgets('よくある項目のタップで項目名とアイコンが入り保存で登録される', (tester) async {
     await openAddScreen(tester);
-    final chip = find.widgetWithText(ActionChip, '布団干し');
+    final chip = find.widgetWithText(ActionChip, 'エアコン掃除');
     await tester.ensureVisible(chip);
     await tester.tap(chip);
     await tester.pumpAndSettle();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      '布団干し',
+      'エアコン掃除',
     );
     expect(
       tester.widget<ItemIconPicker>(find.byType(ItemIconPicker)).selected,
-      ItemIcon.bed,
+      ItemIcon.airConditioner,
     );
     expect(await repository.watchAll().first, isEmpty);
     await tester.ensureVisible(find.text('保存'));
@@ -252,8 +252,8 @@ void main() {
     await tester.pumpAndSettle();
     final items = await repository.watchAll().first;
     expect(items, hasLength(1));
-    expect(items.single.name, '布団干し');
-    expect(items.single.icon, ItemIcon.bed);
+    expect(items.single.name, 'エアコン掃除');
+    expect(items.single.icon, ItemIcon.airConditioner);
   });
 
   testWidgets('登録済みと同名のよくある項目は出ない', (tester) async {
@@ -268,9 +268,10 @@ void main() {
         of: find.byType(ItemTemplateChips),
         matching: find.byType(ActionChip),
       ),
-      findsNWidgets(5),
+      findsNWidgets(maxAddScreenTemplates),
     );
     expect(find.widgetWithText(ActionChip, '美容院'), findsNothing);
+    expect(find.widgetWithText(ActionChip, '歯医者'), findsOneWidget);
   });
 
   testWidgets('よくある項目がすべて登録済みなら欄を出さない', (tester) async {
@@ -283,5 +284,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('よくある項目から選ぶ'), findsNothing);
     expect(find.byType(ItemTemplateChips), findsNothing);
+  });
+
+  testWidgets('登録画面のよくある項目は先頭から上限の件数だけ出る', (tester) async {
+    await openAddScreen(tester);
+    expect(
+      find.descendant(
+        of: find.byType(ItemTemplateChips),
+        matching: find.byType(ActionChip),
+      ),
+      findsNWidgets(maxAddScreenTemplates),
+    );
+    for (final template in itemTemplates.take(maxAddScreenTemplates)) {
+      expect(find.widgetWithText(ActionChip, template.name), findsOneWidget);
+    }
+    for (final template in itemTemplates.skip(maxAddScreenTemplates)) {
+      expect(
+        find.descendant(
+          of: find.byType(ItemTemplateChips),
+          matching: find.text(template.name),
+        ),
+        findsNothing,
+      );
+    }
+  });
+
+  testWidgets('小さい画面でキーボード表示中も保存が見える', (tester) async {
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await openAddScreen(tester);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280 * 3);
+    await tester.pumpAndSettle();
+    final save = find.widgetWithText(FilledButton, '保存');
+    expect(save.hitTestable(), findsOneWidget);
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(640 - 280));
+    expect(tester.takeException(), isNull);
+    await tester.enterText(find.byType(TextField), '洗車');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect((await repository.watchAll().first).single.name, '洗車');
   });
 }

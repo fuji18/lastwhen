@@ -322,6 +322,36 @@ void main() {
       });
     }
 
+    testWidgets('文字サイズ 200% でキーボード表示中も登録画面の保存が押せる', (tester) async {
+      _setScreenSize(tester);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280 * 3);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData.fromView(tester.view)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: ProviderScope(
+            overrides: [
+              itemRepositoryProvider.overrideWithValue(repository),
+              categoryRepositoryProvider.overrideWithValue(
+                FakeCategoryRepository(),
+              ),
+              clockProvider.overrideWithValue(FakeClock(now)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: const ItemAddScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(FilledButton, '保存');
+      expect(save.hitTestable(), findsOneWidget);
+      expect(tester.getRect(save).bottom, lessThanOrEqualTo(640 - 280));
+      expect(_ellipsizedTexts(tester), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
     for (final scale in [1.0, 2.0]) {
       testWidgets('文字サイズ ${scale * 100}% でやったは56dp以上、カードは48dp以上', (
         tester,
