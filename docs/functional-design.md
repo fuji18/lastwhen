@@ -740,6 +740,7 @@ stateDiagram-v2
 
 画面全体の地にも、ごく薄い紙の繊維を敷く(`PaperBackground`)。`Scaffold` の背景はテーマで透明にしてあり、**各ルートの根に `PaperBackground` を置く**。
 AppBar は通常は透明で、内容が下に潜ったときだけ `surfaceContainer` になる。
+ホームの AppBar のタイトルはアプリ名の文字ロゴ(画像)で、`onSurface` で塗る。読み上げではアプリ名「LastWhen」と読む(#92)。図鑑・設定の AppBar は文字のまま。
 
 強調はサイズとウェイトで作り、経過日数を最大・最も太くする。
 

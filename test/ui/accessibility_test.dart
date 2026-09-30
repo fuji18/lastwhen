@@ -16,6 +16,7 @@ import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
 import 'package:lastwhen/ui/screens/settings_screen.dart';
 import 'package:lastwhen/ui/theme/app_theme.dart';
+import 'package:lastwhen/ui/widgets/app_logo.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
@@ -133,6 +134,22 @@ void main() {
   }
 
   group('アクセシビリティ', () {
+    testWidgets('文字サイズ 200% で AppBar のロゴがはみ出さない', (tester) async {
+      _setScreenSize(tester);
+      await seedItems();
+      await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final logo = tester.getRect(find.byType(AppLogo));
+      final appBar = tester.getRect(find.byType(AppBar));
+      expect(logo.left, greaterThanOrEqualTo(appBar.left));
+      expect(logo.right, lessThanOrEqualTo(appBar.right));
+      expect(logo.top, greaterThanOrEqualTo(appBar.top));
+      expect(logo.bottom, lessThanOrEqualTo(appBar.bottom));
+      final sortButton = tester.getRect(find.byTooltip('並び順'));
+      expect(logo.right, lessThanOrEqualTo(sortButton.left));
+    });
+
     testWidgets('文字サイズ 200% で空状態のよくある項目が押せる', (tester) async {
       _setScreenSize(tester);
       await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));

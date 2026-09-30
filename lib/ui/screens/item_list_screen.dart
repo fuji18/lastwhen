@@ -12,6 +12,7 @@ import '../../state/item_list_notifier.dart';
 import '../../state/item_view.dart';
 import '../../state/item_sort_order.dart';
 import '../item_navigation.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/category_filter_bar.dart';
 import '../widgets/centered_scrollable.dart';
 import '../widgets/empty_state.dart';
@@ -62,9 +63,9 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        // 並び順のボタンと並べると、文字サイズ 150% 以上で幅が足りず省略されうる。
-        // タイトルはブランド表記なので、足りないときだけ縮める(判断H)。
-        title: const FittedBox(fit: BoxFit.scaleDown, child: Text('LastWhen')),
+        // 並び順のボタンと並べると、狭い画面では幅が足りなくなりうる。
+        // ロゴはブランド表記なので、足りないときだけ縮める(判断H / #92)。
+        title: const FittedBox(fit: BoxFit.scaleDown, child: AppLogo()),
         actions: [
           // 追加の FAB と同じ条件で出す。空状態・読み込み中・失敗では並べるものが無い。
           if (hasItems)
