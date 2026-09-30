@@ -469,3 +469,13 @@ docs/product-requirements.md / architecture.md / functional-design.md / glossary
 ## 将来の拡張性
 
 - 形式を変えるときは `backupFormatVersion` を上げ、decode に旧版の読み替えを足す。新しい版のファイルは古いアプリで `newerVersion` になる
+
+## 追補: レビュー指摘の修正(/code-review)
+
+**不具合**: `lib/domain/backup.dart` の `_decodeContent` のカテゴリのループで、重複判定用の `categoryNames` に**トリム前の** `rawName` を足している。`validateCategoryName` は比較対象をトリム後の値で比べるため、`" 家事"` → `"家事"` の順に並ぶと重複を見逃す(逆順は検出される)。
+
+**修正(この 1 行だけ)**: `categoryNames.add(rawName);` を `categoryNames.add(validated.value);` に変える(`validated` は直前の `is! ValidCategoryName` の判定で `ValidCategoryName` に昇格済み。`value` はトリム後の名前)。コメントを「重複判定はトリム後の名前で比べる。モデルには検証が通った元の文字列をそのまま入れる(トリムし直さない)。」に変える。**`BackupCategory` に入れる名前は `rawName` のまま変えない。**
+
+**テスト**: `test/domain/backup_test.dart` の「重複したカテゴリ名」の直後に 1 件足す:
+- テスト名 `前後に空白のある名前が先に来ても重複を検出する`
+- categories = `[{'id': 'cat-1', 'name': ' 生活', 'sortOrder': 0}, {'id': 'cat-2', 'name': '生活', 'sortOrder': 1}]` → `expectInvalid(top)`

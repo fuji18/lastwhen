@@ -312,6 +312,15 @@ void main() {
       expectInvalid(top);
     });
 
+    test('前後に空白のある名前が先に来ても重複を検出する', () {
+      final top = _validTop()
+        ..['categories'] = [
+          {'id': 'cat-1', 'name': ' 生活', 'sortOrder': 0},
+          {'id': 'cat-2', 'name': '生活', 'sortOrder': 1},
+        ];
+      expectInvalid(top);
+    });
+
     test('配列の要素が文字列', () {
       final top = _validTop()..['items'] = ['not-a-map'];
       expectInvalid(top);

@@ -57,6 +57,12 @@
 - [x] `docs/glossary.md`(用語の追加・設定の UI 文言・表記ゆれの禁止一覧)
 - [x] 実装後の振り返り(このファイルの下部に記録)
 
+## フェーズ9: レビュー指摘の修正(design.md「追補」)
+
+- [x] `lib/domain/backup.dart` のカテゴリ名の重複判定をトリム後の名前で行う
+- [x] `test/domain/backup_test.dart` に空白つきの名前が先に来る順序のテストを足す
+- [x] 変更したファイルの `dart format` / `flutter analyze --fatal-infos` と `test/domain/backup_test.dart` を通す
+
 ---
 
 ## 実装後の振り返り

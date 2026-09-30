@@ -268,8 +268,9 @@ BackupSnapshot _decodeContent(Map<String, dynamic> top) {
     if (validated is! ValidCategoryName) {
       throw _invalidContent;
     }
-    // 検証が通った元の文字列をそのまま入れる(トリムし直さない)。
-    categoryNames.add(rawName);
+    // 重複判定はトリム後の名前で比べる。モデルには検証が通った元の文字列をそのまま
+    // 入れる(トリムし直さない)。
+    categoryNames.add(validated.value);
     final sortOrder = _requireInt(raw, 'sortOrder');
     categories.add(BackupCategory(id: id, name: rawName, sortOrder: sortOrder));
   }
