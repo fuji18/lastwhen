@@ -6,7 +6,6 @@ import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/domain/item_icon.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/state/item_order.dart';
-import 'package:lastwhen/ui/screens/category_manage_screen.dart';
 import 'package:lastwhen/ui/screens/home_shell.dart';
 import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
@@ -540,13 +539,6 @@ void main() {
         find.widgetWithText(ChoiceChip, '健康'),
       );
       expect(chip.selected, isTrue);
-    });
-
-    testWidgets('AppBar のボタンから管理画面へ遷移する', (tester) async {
-      await pumpWithCategories(tester);
-      await tester.tap(find.byTooltip('カテゴリを管理'));
-      await tester.pumpAndSettle();
-      expect(find.byType(CategoryManageScreen), findsOneWidget);
     });
   });
   group('並び順の選択(F15)', () {

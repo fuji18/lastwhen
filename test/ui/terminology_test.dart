@@ -13,6 +13,7 @@ import 'package:lastwhen/ui/screens/collection_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
+import 'package:lastwhen/ui/screens/settings_screen.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
@@ -98,6 +99,7 @@ void main() {
       '削除確認',
       'カテゴリ管理',
       '図鑑',
+      '設定',
     ]) {
       testWidgets('$screen の描画文字列が表記ゆれの禁止一覧に違反しない', (tester) async {
         tester.view.physicalSize = const Size(360 * 3, 640 * 3);
@@ -141,9 +143,25 @@ void main() {
               expect(find.byType(AlertDialog), findsOneWidget);
             }
           case 'カテゴリ管理':
-            await tester.tap(find.byTooltip('カテゴリを管理'));
+            await tester.tap(
+              find.descendant(
+                of: find.byType(NavigationBar),
+                matching: find.text('設定'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('カテゴリの管理'));
             await tester.pumpAndSettle();
             expect(find.byType(CategoryManageScreen), findsOneWidget);
+          case '設定':
+            await tester.tap(
+              find.descendant(
+                of: find.byType(NavigationBar),
+                matching: find.text('設定'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(find.byType(SettingsScreen), findsOneWidget);
           case '図鑑':
             await tester.tap(find.text('図鑑'));
             await tester.pumpAndSettle();

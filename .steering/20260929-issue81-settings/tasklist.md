@@ -13,13 +13,13 @@
 
 ## フェーズ2: 実装(委託)
 
-- [ ] `lib/ui/app_info.dart` を作る(design §1)
-- [ ] `lib/ui/screens/settings_screen.dart` を作る(design §2)
-- [ ] `lib/ui/screens/home_shell.dart` に設定タブを足す(design §3)
-- [ ] `lib/ui/screens/item_list_screen.dart` からカテゴリ管理のボタンを外す(design §4)
-- [ ] `test/ui/app_info_test.dart` と `test/ui/screens/settings_screen_test.dart` を書く(design §5.1 / §5.2)
-- [ ] 既存テストを直す(design §5.3)
-- [ ] format と analyze を通す(design §6)
+- [x] `lib/ui/app_info.dart` を作る(design §1)
+- [x] `lib/ui/screens/settings_screen.dart` を作る(design §2)
+- [x] `lib/ui/screens/home_shell.dart` に設定タブを足す(design §3)
+- [x] `lib/ui/screens/item_list_screen.dart` からカテゴリ管理のボタンを外す(design §4)
+- [x] `test/ui/app_info_test.dart` と `test/ui/screens/settings_screen_test.dart` を書く(design §5.1 / §5.2)
+- [x] 既存テストを直す(design §5.3)
+- [x] format と analyze を通す(design §6)
 
 ## フェーズ3: 検収(司令塔)
 
