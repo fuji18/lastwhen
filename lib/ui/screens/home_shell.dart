@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 import '../widgets/paper_background.dart';
 import 'collection_screen.dart';
 import 'item_list_screen.dart';
+import 'settings_screen.dart';
 
-/// 下部ナビで一覧(ホーム)と図鑑を切り替える外枠(F31)。起動直後は必ずホーム。
+/// 下部ナビで一覧(ホーム)・図鑑・設定を切り替える外枠(F31)。起動直後は必ずホーム。
 ///
 /// **`Scaffold` にしない。** 外枠を `Scaffold` にすると内側の各画面の `Scaffold` が
 /// 「入れ子」扱いになり、`SnackBar` が外枠にだけ出て一覧の FAB と重なる。
 /// 各画面の `Scaffold` をルートのまま保ち、ナビは `Column` の下段に置く。
 ///
-/// 図鑑側は専用の `ScaffoldMessenger` で包む。包まないと図鑑の `Scaffold` もアプリの
-/// `ScaffoldMessenger` に root として登録され、一覧の取り消し導線がオフステージの図鑑にも
+/// 図鑑と設定は専用の `ScaffoldMessenger` で包む。包まないと図鑑・設定の `Scaffold` もアプリの
+/// `ScaffoldMessenger` に root として登録され、一覧の取り消し導線がオフステージのタブにも
 /// 複製される。同じ内容の `SnackBar` が 2 つ載ると Hero タグが衝突し、記録直後の画面遷移で
 /// 例外になる(#34 判断9)。
 class HomeShell extends StatefulWidget {
@@ -22,6 +23,9 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+
+  /// 設定タブの `ScaffoldMessenger`。タブ切替でコピー完了の `SnackBar` を閉じるために持つ。
+  final _settingsMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   Widget build(BuildContext context) {
@@ -37,12 +41,17 @@ class _HomeShellState extends State<HomeShell> {
               removeBottom: !keyboardVisible,
               child: IndexedStack(
                 index: _index,
-                children: const [
-                  ItemListScreen(),
+                children: [
+                  const ItemListScreen(),
                   // 図鑑の Scaffold をアプリの ScaffoldMessenger に登録させない。登録されると
-                  // 一覧の取り消し導線がオフステージの図鑑にも複製され、同じ Hero タグの
+                  // 一覧の取り消し導線がオフステージのタブにも複製され、同じ Hero タグの
                   // SnackBar が 2 つ載って遷移時に衝突する(#34 判断9)。
-                  ScaffoldMessenger(child: CollectionScreen()),
+                  const ScaffoldMessenger(child: CollectionScreen()),
+                  // 設定も図鑑と同じ理由で専用の ScaffoldMessenger で包む(#34 判断9)。
+                  ScaffoldMessenger(
+                    key: _settingsMessengerKey,
+                    child: const SettingsScreen(),
+                  ),
                 ],
               ),
             ),
@@ -62,6 +71,11 @@ class _HomeShellState extends State<HomeShell> {
                   selectedIcon: Icon(Icons.menu_book),
                   label: '図鑑',
                 ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: '設定',
+                ),
               ],
             ),
         ],
@@ -75,6 +89,7 @@ class _HomeShellState extends State<HomeShell> {
     }
     // 画面遷移と同じく取り消し導線を閉じる(`docs/functional-design.md`「状態ごとの表示」)。
     ScaffoldMessenger.of(context).clearSnackBars();
+    _settingsMessengerKey.currentState?.clearSnackBars();
     setState(() => _index = index);
   }
 }

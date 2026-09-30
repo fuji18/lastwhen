@@ -14,6 +14,7 @@ import 'package:lastwhen/domain/item_repository.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
+import 'package:lastwhen/ui/screens/settings_screen.dart';
 import 'package:lastwhen/ui/theme/app_theme.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
@@ -223,6 +224,35 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       handle.dispose();
+    });
+
+    testWidgets('文字サイズ 200% で設定画面が破綻しない', (tester) async {
+      _setScreenSize(tester, height: 320);
+      await seedItems();
+      await tester.pumpWidget(_app(repository, FakeClock(now), textScale: 2));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('設定'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      for (final label in ['カテゴリの管理', 'ライセンス']) {
+        await tester.scrollUntilVisible(
+          find.text(label),
+          100,
+          scrollable: find.descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(label).hitTestable(), findsOneWidget);
+        expect(_ellipsizedTexts(tester), isEmpty);
+        expect(tester.takeException(), isNull);
+      }
     });
 
     testWidgets('項目名が長い場合だけ 2 行まで表示して省略する', (tester) async {

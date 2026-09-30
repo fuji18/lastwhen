@@ -18,7 +18,6 @@ import '../widgets/empty_state.dart';
 import '../widgets/item_card.dart';
 import '../widgets/item_sort_menu_button.dart';
 import '../widgets/load_error.dart';
-import 'category_manage_screen.dart';
 import 'item_add_screen.dart';
 
 /// 一覧画面。**起動直後に出る画面**(ホーム)。図鑑とは下部ナビで切り替える(#34)。
@@ -63,7 +62,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
     );
     return Scaffold(
       appBar: AppBar(
-        // 並び順とカテゴリ管理の 2 ボタンで、文字サイズ 150% 以上だと幅が足りず省略される。
+        // 並び順のボタンと並べると、文字サイズ 150% 以上で幅が足りず省略されうる。
         // タイトルはブランド表記なので、足りないときだけ縮める(判断H)。
         title: const FittedBox(fit: BoxFit.scaleDown, child: Text('LastWhen')),
         actions: [
@@ -74,11 +73,6 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
               onSelected: (order) =>
                   ref.read(itemSortOrderProvider.notifier).select(order),
             ),
-          IconButton(
-            icon: const Icon(Icons.label_outline),
-            tooltip: 'カテゴリを管理',
-            onPressed: () => _openCategoryManageScreen(context),
-          ),
         ],
       ),
       body: SafeArea(
@@ -166,14 +160,6 @@ void _openAddScreen(BuildContext context, {CategoryId? initialCategoryId}) {
     MaterialPageRoute<void>(
       builder: (context) => ItemAddScreen(initialCategoryId: initialCategoryId),
     ),
-  );
-}
-
-/// カテゴリ管理画面へ遷移する。
-void _openCategoryManageScreen(BuildContext context) {
-  ScaffoldMessenger.of(context).clearSnackBars();
-  Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(builder: (context) => const CategoryManageScreen()),
   );
 }
 
