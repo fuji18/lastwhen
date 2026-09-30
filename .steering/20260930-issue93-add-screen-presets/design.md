@@ -156,6 +156,25 @@ UI 層の 1 画面(`lib/ui/screens/item_add_screen.dart`)だけの変更。domai
   | よくある項目 | 空状態のチップ 1 タップで確認なしに未実施の項目が一覧に出る。登録画面では同名のものが出ず先頭 3 件まで、タップで入力欄が埋まる。360×640dp でキーボード表示中(文字サイズ 200% を含む)もスクロールせずに「保存」が押せる |
   ```
 
+### §5 追補(Codex 委託の検収で判明。判断7)
+
+**判断7**: テスト C の `MediaQuery(data: const MediaQueryData(textScaler: TextScaler.linear(2)), …)` は、ビューの
+`viewInsets` / `size` を空の値で上書きしてしまい、キーボードが無い扱いになる(実測: 保存の下端が 624dp)。
+テスト C だけ、MediaQuery の値をビューから作って文字サイズだけ上書きする形に直す:
+
+```dart
+MediaQuery(
+  data: MediaQueryData.fromView(
+    tester.view,
+  ).copyWith(textScaler: const TextScaler.linear(2)),
+  child: ProviderScope(/* 既存どおり */),
+),
+```
+
+- `const` が外れる以外、テスト C の他の行は変えない。`viewInsets` の設定は `pumpWidget` より前のまま
+- 既存ループ「文字サイズ 200% で編集/登録画面が破綻しない」は変えない(`ensureVisible` で到達を見るテストなので影響しない)
+- 実装(`item_add_screen.dart`)は変えない
+
 ## 触らないもの
 
 - `lib/domain/item_template.dart`(6 件の中身と `availableItemTemplates`)
