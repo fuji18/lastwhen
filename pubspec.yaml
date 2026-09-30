@@ -86,8 +86,10 @@ flutter:
   uses-material-design: true
 
   # ライセンス全文。起動時に LicenseRegistry へ登録する(lib/ui/theme/app_fonts.dart)。
+  # ホームの AppBar の文字ロゴ(#92)。assets/branding/ の他の画像は生成用の入力なので登録しない。
   assets:
     - assets/fonts/ZenMaruGothic-OFL.txt
+    - assets/branding/logo_wordmark.png
 
   # 同梱フォント(#56 / docs/architecture.md「同梱フォント」)。
   fonts:

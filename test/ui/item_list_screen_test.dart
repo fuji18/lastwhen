@@ -11,6 +11,7 @@ import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/screens/item_list_screen.dart';
 import 'package:lastwhen/ui/screens/item_add_screen.dart';
 import 'package:lastwhen/ui/screens/item_edit_screen.dart';
+import 'package:lastwhen/ui/widgets/app_logo.dart';
 import 'package:lastwhen/ui/widgets/category_filter_bar.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/empty_state.dart';
@@ -733,6 +734,27 @@ void main() {
         isNotNull,
       );
       expect(await repository.watchAll().first, isEmpty);
+    });
+  });
+
+  group('AppBar のロゴ', () {
+    testWidgets('ホームの AppBar にロゴが出て、アプリ名の文字は出ない', (tester) async {
+      await pumpItems(tester);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byType(AppLogo),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('LastWhen'), findsNothing);
+    });
+
+    testWidgets('ロゴは「LastWhen」と読み上げられる', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpItems(tester);
+      expect(find.bySemanticsLabel('LastWhen'), findsOneWidget);
+      handle.dispose();
     });
   });
 }
