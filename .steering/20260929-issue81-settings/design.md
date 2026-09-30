@@ -179,3 +179,44 @@ import は `package:flutter/material.dart` / `package:flutter/services.dart` / `
 - `dart format --output=none --set-exit-if-changed .` と `flutter analyze --fatal-infos` を通す(テストは検収側が回す)
 - 同じエラーで 2 回直して通らなければ止めて報告する
 - ここに書いていない UI 文言・部品を足さない
+
+## 7. CI 失敗の修正(PR #88)
+
+`settings_screen_test.dart` の「コピー後にホームへ移って設定に戻ると SnackBar が無い」が 150 行目
+(`expect(find.byType(SnackBar), findsOneWidget)`)で落ちる。
+
+**原因**: このテストは `SystemChannels.platform` をモックしていない。モックが無いと
+`Clipboard.setData` の応答は実際の非同期で返り、`testWidgets` の FakeAsync 内の `pumpAndSettle` では
+完了しない。`_copyPrivacyPolicyUrl` が `await` から戻らず、`SnackBar` が出ない。
+製品コード(`settings_screen.dart`)は変えない。
+
+**修正**:
+
+- `settings_screen_test.dart` にクリップボードのモックを入れるヘルパを足す。
+  「URL をコピーすると…」のテストにあるモックの登録と `addTearDown` をこのヘルパに移す:
+  ```dart
+  /// `Clipboard.setData` を受け止めるモックを入れ、写された文字列を返す関数を返す。
+  String? Function() _mockClipboard(WidgetTester tester) {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText =
+              (call.arguments as Map<dynamic, dynamic>)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    return () => copiedText;
+  }
+  ```
+- 「URL をコピーすると…」は `final copied = _mockClipboard(tester);` を使い、`expect(copied(), AppInfo.privacyPolicyUrl)` にする
+- 「コピー後にホームへ…」は `_openSettings` の後に `_mockClipboard(tester);` を呼ぶ。それ以外の手順は変えない
+- 検証: `flutter test test/ui/screens/settings_screen_test.dart` が全件通ること(fork はホストで実行できる)。続けて `dart format` と `flutter analyze --fatal-infos`

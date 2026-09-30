@@ -21,6 +21,11 @@
 - [x] 既存テストを直す(design §5.3)
 - [x] format と analyze を通す(design §6)
 
+## フェーズ2.5: CI 失敗の修正(PR #88)
+
+- [x] `settings_screen_test.dart` にクリップボードのモックのヘルパを足し、2 つのコピーのテストで使う(design §7)
+- [x] `settings_screen_test.dart` の全件と format・analyze を通す(design §7)
+
 ## フェーズ3: 検収(司令塔)
 
 - [ ] `/check` を通す

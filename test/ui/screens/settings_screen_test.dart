@@ -54,6 +54,28 @@ Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.pumpAndSettle();
 }
 
+/// `Clipboard.setData` を受け止めるモックを入れ、写された文字列を返す関数を返す。
+String? Function() _mockClipboard(WidgetTester tester) {
+  String? copiedText;
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.platform,
+    (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copiedText =
+            (call.arguments as Map<dynamic, dynamic>)['text'] as String;
+      }
+      return null;
+    },
+  );
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    ),
+  );
+  return () => copiedText;
+}
+
 void main() {
   final now = DateTime.utc(2026, 9, 16, 3);
   late FakeItemRepository repository;
@@ -117,33 +139,18 @@ void main() {
   testWidgets('URL をコピーするとクリップボードに入り完了を知らせる', (tester) async {
     await pumpItems(tester);
     await _openSettings(tester);
-    String? copiedText;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copiedText =
-              (call.arguments as Map<dynamic, dynamic>)['text'] as String;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
+    final copied = _mockClipboard(tester);
     await _scrollTo(tester, find.byTooltip('URL をコピー'));
     await tester.tap(find.byTooltip('URL をコピー'));
     await tester.pumpAndSettle();
-    expect(copiedText, AppInfo.privacyPolicyUrl);
+    expect(copied(), AppInfo.privacyPolicyUrl);
     expect(find.widgetWithText(SnackBar, 'URL をコピーしました'), findsOneWidget);
   });
 
   testWidgets('コピー後にホームへ移って設定に戻ると SnackBar が無い', (tester) async {
     await pumpItems(tester);
     await _openSettings(tester);
+    _mockClipboard(tester);
     await _scrollTo(tester, find.byTooltip('URL をコピー'));
     await tester.tap(find.byTooltip('URL をコピー'));
     await tester.pumpAndSettle();
