@@ -74,3 +74,19 @@ final class DeleteCategoryIgnored extends DeleteCategoryResult {
 final class DeleteCategoryFailed extends DeleteCategoryResult {
   const DeleteCategoryFailed();
 }
+
+/// カテゴリの並び替え結果。**例外を投げない。**
+sealed class ReorderCategoryResult {
+  const ReorderCategoryResult();
+}
+
+/// 保存まで成功した。並びは購読で届く。
+final class ReorderCategorySucceeded extends ReorderCategoryResult {
+  const ReorderCategorySucceeded();
+}
+
+/// 保存に失敗した(DB 書き込み失敗、または同時に追加・削除されて集合が合わなかった)。
+/// 並びは変わらない。
+final class ReorderCategoryFailed extends ReorderCategoryResult {
+  const ReorderCategoryFailed();
+}

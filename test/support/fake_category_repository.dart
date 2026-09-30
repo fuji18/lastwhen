@@ -77,6 +77,27 @@ final class FakeCategoryRepository implements CategoryRepository {
     _emit();
   }
 
+  @override
+  Future<void> reorder(List<CategoryId> orderedIds) async {
+    _failIfConfigured();
+    final current = _categories.map((c) => c.id).toSet();
+    if (orderedIds.length != current.length ||
+        orderedIds.toSet().length != orderedIds.length ||
+        !current.containsAll(orderedIds)) {
+      throw ArgumentError.value(orderedIds, 'orderedIds', '現在のカテゴリの集合と一致しません');
+    }
+    final byId = {for (final c in _categories) c.id: c};
+    for (var i = 0; i < orderedIds.length; i++) {
+      final id = orderedIds[i];
+      final existing = byId[id]!;
+      byId[id] = Category(id: existing.id, name: existing.name, sortOrder: i);
+    }
+    _categories
+      ..clear()
+      ..addAll(byId.values);
+    _emit();
+  }
+
   /// 購読を終了する。テストの `addTearDown` で呼ぶ。
   Future<void> dispose() => _controller.close();
 

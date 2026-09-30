@@ -540,6 +540,27 @@ void main() {
       );
       expect(chip.selected, isTrue);
     });
+
+    testWidgets('カテゴリの並び替えがチップの順に反映される', (tester) async {
+      final health = await categoryRepository.add('健康');
+      final hobby = await categoryRepository.add('趣味');
+      await categoryRepository.reorder([hobby.id, health.id]);
+      await repository.add('美容院', categoryId: health.id, now: now);
+      await tester.pumpWidget(
+        _app(
+          repository,
+          FakeClock(now),
+          categoryRepository: categoryRepository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final allChip = tester.getCenter(find.text(allCategoriesLabel)).dx;
+      final hobbyChip = tester.getCenter(find.text('趣味')).dx;
+      final healthChip = tester.getCenter(find.text('健康')).dx;
+      expect(allChip, lessThan(hobbyChip));
+      expect(hobbyChip, lessThan(healthChip));
+    });
   });
   group('並び順の選択(F15)', () {
     Future<void> pumpOrderedItems(WidgetTester tester) async {
