@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/backup_repository_impl.dart';
 import '../data/category_repository_impl.dart';
 import '../data/database/app_database.dart';
 import '../data/item_repository_impl.dart';
 import '../data/local_notification_scheduler.dart';
+import '../data/platform_backup_file_transfer.dart';
+import '../domain/backup_file_transfer.dart';
+import '../domain/backup_repository.dart';
 import '../domain/category_repository.dart';
 import '../domain/clock.dart';
 import '../domain/item_repository.dart';
@@ -38,4 +42,14 @@ final clockProvider = Provider<Clock>((ref) => const SystemClock());
 /// 通知の予約。テストは `FakeNotificationScheduler` に差し替える。
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (ref) => LocalNotificationScheduler(),
+);
+
+/// バックアップの読み書き。テストは `FakeBackupRepository` に差し替える。
+final backupRepositoryProvider = Provider<BackupRepository>(
+  (ref) => BackupRepositoryImpl(ref.watch(appDatabaseProvider)),
+);
+
+/// 共有シートとファイル選択。テストは `FakeBackupFileTransfer` に差し替える。
+final backupFileTransferProvider = Provider<BackupFileTransfer>(
+  (ref) => PlatformBackupFileTransfer(),
 );

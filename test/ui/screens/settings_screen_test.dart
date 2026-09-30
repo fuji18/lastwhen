@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
+import 'package:lastwhen/domain/backup.dart';
 import 'package:lastwhen/domain/clock.dart';
 import 'package:lastwhen/state/providers.dart';
 import 'package:lastwhen/ui/app_info.dart';
@@ -12,6 +15,8 @@ import 'package:lastwhen/ui/screens/settings_screen.dart';
 import 'package:lastwhen/ui/widgets/done_button.dart';
 import 'package:lastwhen/ui/widgets/item_card.dart';
 
+import '../../support/fake_backup_file_transfer.dart';
+import '../../support/fake_backup_repository.dart';
 import '../../support/fake_category_repository.dart';
 import '../../support/fake_clock.dart';
 import '../../support/fake_item_repository.dart';
@@ -20,6 +25,8 @@ Widget _app(
   FakeItemRepository repository,
   Clock clock, {
   FakeCategoryRepository? categoryRepository,
+  FakeBackupRepository? backupRepository,
+  FakeBackupFileTransfer? backupFileTransfer,
   double textScale = 1,
 }) => MediaQuery(
   data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
@@ -28,6 +35,12 @@ Widget _app(
       itemRepositoryProvider.overrideWithValue(repository),
       categoryRepositoryProvider.overrideWithValue(
         categoryRepository ?? FakeCategoryRepository(),
+      ),
+      backupRepositoryProvider.overrideWithValue(
+        backupRepository ?? FakeBackupRepository(),
+      ),
+      backupFileTransferProvider.overrideWithValue(
+        backupFileTransfer ?? FakeBackupFileTransfer(),
       ),
       clockProvider.overrideWithValue(clock),
     ],
@@ -84,11 +97,22 @@ void main() {
     addTearDown(repository.dispose);
   });
 
-  Future<void> pumpItems(WidgetTester tester) async {
+  Future<void> pumpItems(
+    WidgetTester tester, {
+    FakeBackupRepository? backupRepository,
+    FakeBackupFileTransfer? backupFileTransfer,
+  }) async {
     final item = await repository.add('美容院', now: now);
     await repository.markDone(item.id, DateTime.utc(2026, 9, 12, 3));
     await repository.add('歯ブラシ交換', now: now);
-    await tester.pumpWidget(_app(repository, FakeClock(now)));
+    await tester.pumpWidget(
+      _app(
+        repository,
+        FakeClock(now),
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -107,14 +131,17 @@ void main() {
     }
   });
 
-  testWidgets('設定にカテゴリ管理・注意事項・アプリ情報が表示される', (tester) async {
+  testWidgets('設定にカテゴリ管理・バックアップ・注意事項・アプリ情報が表示される', (tester) async {
     await pumpItems(tester);
     await _openSettings(tester);
     for (final label in [
       'カテゴリの管理',
+      'バックアップ',
+      'データを書き出す',
+      'データを復元する',
       '注意事項',
       '項目と記録は、この端末の中にだけ保存されます。アプリがインターネットへ送信することはありません。',
-      'アプリを削除すると、項目と記録もすべて消えます。',
+      'アプリを削除すると、項目と記録もすべて消えます。機種変更の前に「データを書き出す」で保存しておくと、復元できます。',
       '端末のバックアップ(Android の自動バックアップなど)が有効な場合は、機種変更で引き継げるように、項目と記録の複製が OS の提供元のクラウドに保存されます。',
       'このアプリについて',
       'プライバシーポリシー',
@@ -195,5 +222,126 @@ void main() {
   testWidgets('一覧の AppBar にカテゴリを管理のボタンが無い', (tester) async {
     await pumpItems(tester);
     expect(find.byTooltip('カテゴリを管理'), findsNothing);
+  });
+
+  group('バックアップ', () {
+    testWidgets('書き出しをタップすると共有される', (tester) async {
+      final backupRepository = FakeBackupRepository(
+        snapshot: const BackupSnapshot(categories: [], items: [], doneLogs: []),
+      );
+      final backupFileTransfer = FakeBackupFileTransfer();
+      await pumpItems(
+        tester,
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      );
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを書き出す'));
+      await tester.tap(find.text('データを書き出す'));
+      await tester.pumpAndSettle();
+      expect(backupFileTransfer.shared, hasLength(1));
+    });
+
+    testWidgets('書き出しが例外なら SnackBar を出す', (tester) async {
+      final backupFileTransfer = FakeBackupFileTransfer()
+        ..shareError = Exception('失敗');
+      await pumpItems(tester, backupFileTransfer: backupFileTransfer);
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを書き出す'));
+      await tester.tap(find.text('データを書き出す'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(SnackBar, '書き出せませんでした'), findsOneWidget);
+    });
+
+    testWidgets('不正なファイルを復元しようとするとダイアログが出て置き換わらない', (tester) async {
+      final backupRepository = FakeBackupRepository();
+      final backupFileTransfer = FakeBackupFileTransfer()
+        ..pickResult = utf8.encode('not json');
+      await pumpItems(
+        tester,
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      );
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを復元する'));
+      await tester.tap(find.text('データを復元する'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AlertDialog, '復元できません'), findsOneWidget);
+      expect(find.text('このアプリで書き出したファイルではありません。データは変わっていません。'), findsOneWidget);
+      expect(backupRepository.replaced, isEmpty);
+    });
+
+    testWidgets('正常なファイルなら件数つきの確認が出て、キャンセルすると置き換わらない', (tester) async {
+      final snapshot = const BackupSnapshot(
+        categories: [BackupCategory(id: 'cat-1', name: '生活', sortOrder: 0)],
+        items: [],
+        doneLogs: [],
+      );
+      final backupRepository = FakeBackupRepository();
+      final backupFileTransfer = FakeBackupFileTransfer()
+        ..pickResult = utf8.encode(encodeBackup(snapshot, exportedAt: now));
+      await pumpItems(
+        tester,
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      );
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを復元する'));
+      await tester.tap(find.text('データを復元する'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AlertDialog, 'データを復元しますか?'), findsOneWidget);
+      expect(find.textContaining('項目 0 件・記録 0 件・カテゴリ 1 件'), findsOneWidget);
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(backupRepository.replaced, isEmpty);
+    });
+
+    testWidgets('正常なファイルで復元すると置き換わり SnackBar が出る', (tester) async {
+      final snapshot = const BackupSnapshot(
+        categories: [],
+        items: [],
+        doneLogs: [],
+      );
+      final backupRepository = FakeBackupRepository();
+      final backupFileTransfer = FakeBackupFileTransfer()
+        ..pickResult = utf8.encode(encodeBackup(snapshot, exportedAt: now));
+      await pumpItems(
+        tester,
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      );
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを復元する'));
+      await tester.tap(find.text('データを復元する'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('復元する'));
+      await tester.pumpAndSettle();
+      expect(backupRepository.replaced, hasLength(1));
+      expect(find.widgetWithText(SnackBar, '復元しました'), findsOneWidget);
+    });
+
+    testWidgets('復元の書き込みが例外なら理由を出す', (tester) async {
+      final snapshot = const BackupSnapshot(
+        categories: [],
+        items: [],
+        doneLogs: [],
+      );
+      final backupRepository = FakeBackupRepository()
+        ..replaceError = Exception('失敗');
+      final backupFileTransfer = FakeBackupFileTransfer()
+        ..pickResult = utf8.encode(encodeBackup(snapshot, exportedAt: now));
+      await pumpItems(
+        tester,
+        backupRepository: backupRepository,
+        backupFileTransfer: backupFileTransfer,
+      );
+      await _openSettings(tester);
+      await _scrollTo(tester, find.text('データを復元する'));
+      await tester.tap(find.text('データを復元する'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('復元する'));
+      await tester.pumpAndSettle();
+      expect(find.text('復元できませんでした。データは変わっていません。'), findsOneWidget);
+    });
   });
 }

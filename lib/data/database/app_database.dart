@@ -115,8 +115,8 @@ class AppDatabase extends _$AppDatabase {
 
 /// `<アプリのドキュメント領域>/lastwhen.sqlite` を開く。
 ///
-/// **OS の自動バックアップ(iCloud / Auto Backup)から除外しない。** MVP に
-/// エクスポート機能が無い以上、これが唯一の機種変更時の移行手段になる
+/// **OS の自動バックアップ(iCloud / Auto Backup)から除外しない。** 書き出し・復元(F26)を
+/// 使わない利用者にとっては、これが機種変更時の移行手段になる
 /// (`docs/architecture.md`「バックアップ戦略」)。
 QueryExecutor _openConnection() {
   return LazyDatabase(() async {
