@@ -44,8 +44,21 @@
 
 - [x] `dart format --output=none --set-exit-if-changed .` / `flutter analyze --fatal-infos` / `flutter test` が通る
 
+## フェーズ6: 追補(検収で判明)
+
+- [x] 判断13: `_linkPending` で連続反応の競合を塞ぎ、テストを足す(design 追補)
+- [x] コメント・文言・未使用引数の修正(design 追補「その他の修正」)
+- [x] 詳細画面を積んだ状態のフローテスト、失敗注入があれば失敗系テスト(design 追補)
+- [x] `dart format` / `flutter analyze --fatal-infos` / `flutter test` が通る
+
 ---
 
 ## 申し送り
 
-(振り返りで記入)
+- **実機確認が未実施**。devcontainer に Android 実機が無い。マージ前に次を確認する:
+  - `adb shell am start -a android.intent.action.VIEW -d "lastwhen://done/<項目ID>"` で記録されること(コールド・起動中)
+  - NFC タグ(NFC Tools 等で URL レコードとして書き込み)をかざして起動・記録されること。NDEF_DISCOVERED と VIEW の両方の intent-filter を入れてあるが、端末によってはアプリ選択が出る可能性がある
+- 検収で code-reviewer が連続反応の競合(判断6 の穴)を指摘し、判断13(`_linkPending`)を追補した。fork の往復は 2 回
+- Codex はこの環境に無く(exit 3)、全量を implement-ticket の Sonnet fork で実装した
+- 「記録が 1 件だけ」のテストは fake に履歴の読み取り口が無いため `removeDoneLogsBetween` の戻り値で数えている。fake に読み取り口を足すなら置き換えたい
+- iOS は別チケット(Universal Link とドメインが要る)

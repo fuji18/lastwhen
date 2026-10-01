@@ -1049,7 +1049,7 @@ void main() {
   });
 
   group('markDoneFromLink', () {
-    Future<ProviderContainer> ready(Item item) async {
+    Future<ProviderContainer> ready() async {
       final container = _container(repository, FakeClock(now));
       await container.read(itemListProvider.future);
       await Future<void>.delayed(Duration.zero);
@@ -1061,7 +1061,7 @@ void main() {
 
     test('未実施の項目を記録する', () async {
       final item = await repository.add('美容院', now: now);
-      final container = await ready(item);
+      final container = await ready();
       final result = await container
           .read(itemListProvider.notifier)
           .markDoneFromLink(item.id);
@@ -1073,7 +1073,7 @@ void main() {
     test('昨日記録済みでも記録する', () async {
       final item = await repository.add('美容院', now: now);
       await repository.markDone(item.id, now.subtract(const Duration(days: 1)));
-      final container = await ready(item);
+      final container = await ready();
       final result = await container
           .read(itemListProvider.notifier)
           .markDoneFromLink(item.id);
@@ -1083,7 +1083,7 @@ void main() {
     test('今日記録済みなら書き込まない', () async {
       final item = await repository.add('美容院', now: now);
       await repository.markDone(item.id, now);
-      final container = await ready(item);
+      final container = await ready();
       final result = await container
           .read(itemListProvider.notifier)
           .markDoneFromLink(item.id);
@@ -1092,8 +1092,8 @@ void main() {
     });
 
     test('存在しない ID は見つからず、書き込まない', () async {
-      final item = await repository.add('美容院', now: now);
-      final container = await ready(item);
+      await repository.add('美容院', now: now);
+      final container = await ready();
       final result = await container
           .read(itemListProvider.notifier)
           .markDoneFromLink(ItemId('unknown'));
@@ -1113,12 +1113,52 @@ void main() {
 
     test('undo を渡すと未実施に戻る', () async {
       final item = await repository.add('美容院', now: now);
-      final container = await ready(item);
+      final container = await ready();
       final notifier = container.read(itemListProvider.notifier);
       final result =
           await notifier.markDoneFromLink(item.id) as LinkMarkDoneSucceeded;
       await notifier.undoMarkDone(result.undo);
       expect(await lastDoneAt(), isNull);
+    });
+
+    test('連続して呼んでも同じ日に 2 件記録しない', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready();
+      final notifier = container.read(itemListProvider.notifier);
+      final results = await Future.wait([
+        notifier.markDoneFromLink(item.id),
+        notifier.markDoneFromLink(item.id),
+      ]);
+      expect(results.whereType<LinkMarkDoneSucceeded>(), hasLength(1));
+      expect(results.whereType<LinkMarkDoneAlreadyToday>(), hasLength(1));
+      final logs = await repository.removeDoneLogsBetween(
+        item.id,
+        from: DateTime.utc(2000),
+        to: DateTime.utc(2100),
+        now: now,
+      );
+      expect(logs, hasLength(1));
+    });
+
+    test('取り消した後はもう一度記録できる', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready();
+      final notifier = container.read(itemListProvider.notifier);
+      final first =
+          await notifier.markDoneFromLink(item.id) as LinkMarkDoneSucceeded;
+      await notifier.undoMarkDone(first.undo);
+      final second = await notifier.markDoneFromLink(item.id);
+      expect(second, isA<LinkMarkDoneSucceeded>());
+    });
+
+    test('書き込みに失敗したら失敗を返す', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready();
+      repository.writeError = StateError('boom');
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(item.id);
+      expect(result, isA<LinkMarkDoneFailed>());
     });
   });
 }

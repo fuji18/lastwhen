@@ -20,7 +20,7 @@ Future<void> showNfcTagDialog(BuildContext context, ItemView item) {
             children: [
               Text(
                 'NFC タグ書き込みアプリで、次のリンクを URL としてタグに書き込んでください。'
-                'タグにスマホをかざすと「${item.name}」を記録します(Android のみ)。',
+                'NFC タグにスマホをかざすと「${item.name}」を記録します(Android のみ)。',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),

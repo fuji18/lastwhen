@@ -483,3 +483,36 @@ NFC の `uses-permission` / `uses-feature` は足さない(アプリは NFC を�
 - `flutter analyze --fatal-infos`
 - `flutter test`(全件)
 - Flutter SDK は `/opt/flutter/bin` にある(`export PATH=/opt/flutter/bin:$PATH`)
+
+## 追補(検収で判明。code-reviewer の推奨指摘)
+
+### 判断13: 連続反応の競合を塞ぐ(判断6 の穴)
+
+「今日記録済み」の判定は `_latestItems` を見るが、1 回目の書き込みが `watchAll` の emit で `_latestItems` に
+反映される前に 2 回目のリンクが届くと、判定をすり抜けて同日に 2 件記録される。
+
+`ItemListNotifier` に **`final Set<ItemId> _linkPending = {};`**(doc: 「リンクで書き込み中・または書き込み後の emit 待ちの項目(判断13)」)を持つ。
+
+- `markDoneFromLink`: 項目が見つかった後、今日記録済みの判定の**前**に `if (_linkPending.contains(id)) return LinkMarkDoneAlreadyToday(itemName: item.name);`
+- 判定を通ったら `_linkPending.add(id);` してから `markDone(id)`。結果が `MarkDoneSucceeded` 以外なら `_linkPending.remove(id);`
+- `build()` の `watchAll().map` の中、`_latestItems = items;` の直後に、`_linkPending` から「一覧に無い ID」と「最終実施日が今日(`elapsedDays(...) == 0`、now はその emit の `clock.now()`)になった ID」を取り除く。emit で反映されれば以降は `_latestItems` の判定が効く
+  - now は既存の `clock.now()` 呼び出しを 1 回にまとめて使い回す(判断2「now は 1 回の emit につき 1 つ」)。`toItemViews` に渡す now と同じ値にする
+- `undoMarkDone` の先頭で `_linkPending.remove(undo.id);`(emit 前に取り消されたとき、同じ日に再度かざせるようにする)
+
+テスト(`test/state/item_list_notifier_test.dart` の `markDoneFromLink` group に足す):
+- 同じ ID で `markDoneFromLink` を **await せずに 2 回**呼び、`Future.wait` で両方待つ → 片方が `LinkMarkDoneSucceeded`、もう片方が `LinkMarkDoneAlreadyToday`。リポジトリの記録(done log)は 1 件だけ
+- 成功 → `undoMarkDone` → もう一度 `markDoneFromLink` → `LinkMarkDoneSucceeded`
+
+### その他の修正
+
+- `lib/ui/screens/item_list_screen.dart` の `_openAddScreen` の doc を次の 2 行にする:
+  ```
+  /// 名前付きルートを使わない(design.md 判断4)。ディープリンクは記録のリンク(F32)だけで
+  /// 画面へは遷移しないため、ルート表を持つと二重管理になるだけ。
+  ```
+  (直前の行に「登録画面へ遷移する。」と空の `///` 行がある構成は保つ)
+- `lib/ui/widgets/nfc_tag_dialog.dart` の説明文の「タグにスマホをかざすと」を「NFC タグにスマホをかざすと」にする(glossary「NFC を付けずにタグとだけ書かない」)
+- `test/state/item_list_notifier_test.dart` の未使用引数(`ready(Item item)` の `item`)を消す
+- テストを足す:
+  - `test/ui/done_link_flow_test.dart`: 項目の詳細画面を開いた(積んだ)状態でリンクを push → 詳細画面のまま(`ItemDetailScreen` が残る)で「「<名前>」を記録しました」が見える(判断8)
+  - `FakeItemRepository` に書き込み失敗を注入する仕組みが既にあれば、`markDoneFromLink` の `LinkMarkDoneFailed` と、フローテストの「保存できませんでした。もう一度お試しください」を 1 本ずつ足す。**仕組みが無ければ足さない**(fake の拡張はこのチケットの範囲外)

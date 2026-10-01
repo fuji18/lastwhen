@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
 import 'package:lastwhen/domain/done_link.dart';
 import 'package:lastwhen/state/providers.dart';
+import 'package:lastwhen/ui/screens/item_detail_screen.dart';
 import 'package:lastwhen/ui/done_link_receiver.dart';
 
 import '../support/fake_category_repository.dart';
@@ -126,5 +127,30 @@ void main() {
     expect(find.text('「美容院」を記録しました'), findsOneWidget);
     final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(bar.selectedIndex, 0);
+  });
+
+  testWidgets('詳細画面を開いたままでも記録し、詳細画面に留まる', (tester) async {
+    final item = await repository.add('美容院', now: now);
+    final receiver = DoneLinkReceiver();
+    await tester.pumpWidget(app(receiver));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('美容院'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
+    await push(tester, receiver, doneLinkFor(item.id).toString());
+
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
+    expect(find.text('「美容院」を記録しました'), findsOneWidget);
+  });
+
+  testWidgets('書き込みに失敗したら保存できなかったと出す', (tester) async {
+    final item = await repository.add('美容院', now: now);
+    final receiver = DoneLinkReceiver();
+    await tester.pumpWidget(app(receiver));
+    await tester.pumpAndSettle();
+    repository.writeError = StateError('boom');
+    await push(tester, receiver, doneLinkFor(item.id).toString());
+
+    expect(find.text('保存できませんでした。もう一度お試しください'), findsOneWidget);
   });
 }

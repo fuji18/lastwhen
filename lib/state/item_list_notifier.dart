@@ -46,6 +46,9 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   /// 確定済みの経年順(F30)。図鑑は選んだ並び順に追従しないので別に持つ。null は次の emit で確定。
   List<ItemId>? _fixedAgingOrder;
 
+  /// リンクで書き込み中・または書き込み後の emit 待ちの項目(判断13)。
+  final Set<ItemId> _linkPending = {};
+
   /// 確定済みの経年順の ID 列。`collectionItemsProvider` が読む。未確定なら空。
   ///
   /// state の更新と同時に書き換わるので、state を watch している側が読めば食い違わない。
@@ -66,7 +69,20 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
     // now は 1 回の emit につき 1 つ。行ごとに Clock を呼ばない(判断2)。
     return repository.watchAll().map((items) {
       _latestItems = items;
-      return _ordered(toItemViews(items, now: clock.now()));
+      final now = clock.now();
+      if (_linkPending.isNotEmpty) {
+        final byId = {for (final item in items) item.id: item};
+        _linkPending.removeWhere((id) {
+          final item = byId[id];
+          if (item == null) {
+            return true;
+          }
+          final lastDoneAt = item.lastDoneAt;
+          return lastDoneAt != null &&
+              elapsedDays(lastDoneAt: lastDoneAt, now: now) == 0;
+        });
+      }
+      return _ordered(toItemViews(items, now: now));
     });
   }
 
@@ -178,6 +194,7 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
   ///
   /// **未実施だった項目は未実施(null)へ戻す。** 「今日」のまま残すと記録が捏造される。
   Future<UndoResult> undoMarkDone(MarkDoneUndo undo) async {
+    _linkPending.remove(undo.id);
     try {
       await ref
           .read(itemRepositoryProvider)
@@ -220,6 +237,9 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
       return const LinkMarkDoneNotFound();
     }
     final item = _latestItems[index];
+    if (_linkPending.contains(id)) {
+      return LinkMarkDoneAlreadyToday(itemName: item.name);
+    }
     final lastDoneAt = item.lastDoneAt;
     if (lastDoneAt != null &&
         elapsedDays(
@@ -229,7 +249,12 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
             0) {
       return LinkMarkDoneAlreadyToday(itemName: item.name);
     }
-    return switch (await markDone(id)) {
+    _linkPending.add(id);
+    final result = await markDone(id);
+    if (result is! MarkDoneSucceeded) {
+      _linkPending.remove(id);
+    }
+    return switch (result) {
       MarkDoneSucceeded(:final undo) => LinkMarkDoneSucceeded(
         itemName: item.name,
         undo: undo,
