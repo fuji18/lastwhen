@@ -153,7 +153,7 @@ class _ItemListScreenState extends ConsumerState<ItemListScreen> {
 /// 登録画面へ遷移する。
 ///
 /// 名前付きルートを使わない(design.md 判断4)。画面は一覧・登録・編集などの画面だけで、
-/// ディープリンクも扱わないため、ルート表を持つと二重管理になるだけ。
+/// ディープリンクは記録のリンク(F32)だけで、画面へは遷移しないため、ルート表を持つと二重管理になるだけ。
 void _openAddScreen(BuildContext context, {CategoryId? initialCategoryId}) {
   // ScaffoldMessenger は Navigator の上にあり、閉じないと遷移後も導線が残る。
   ScaffoldMessenger.of(context).clearSnackBars();

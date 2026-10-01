@@ -14,6 +14,7 @@ import '../item_navigation.dart';
 import '../theme/app_theme.dart';
 import '../widgets/aged_paper.dart';
 import '../widgets/item_card.dart' show elapsedText;
+import '../widgets/nfc_tag_dialog.dart';
 import '../widgets/paper_background.dart';
 
 /// 経年ステージの一言。断定や催促をしない。
@@ -160,7 +161,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 }
 
 /// 「…」メニューで選べる操作。
-enum _DetailMenuAction { recordPastDate, edit }
+enum _DetailMenuAction { recordPastDate, edit, nfcTag }
 
 /// 右上の「…」メニュー(判断G)。削除の入口は置かない(F7 は編集画面の中だけ)。
 class _DetailMenuButton extends StatelessWidget {
@@ -179,6 +180,8 @@ class _DetailMenuButton extends StatelessWidget {
             unawaited(recordPastDateWithUndo(context, item.id));
           case _DetailMenuAction.edit:
             openItemEditScreen(context, item);
+          case _DetailMenuAction.nfcTag:
+            unawaited(showNfcTagDialog(context, item));
         }
       },
       itemBuilder: (context) => const [
@@ -196,6 +199,14 @@ class _DetailMenuButton extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.edit_outlined),
             title: Text('編集'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _DetailMenuAction.nfcTag,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.nfc),
+            title: Text('NFC タグに登録'),
           ),
         ),
       ],

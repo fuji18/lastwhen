@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/category.dart';
+import '../domain/elapsed_days.dart';
 import '../domain/item.dart';
 import '../domain/item_icon.dart';
 import '../domain/item_name.dart';
@@ -14,6 +15,7 @@ import 'edit_item_result.dart';
 import 'item_order.dart';
 import 'item_sort_order.dart';
 import 'item_view.dart';
+import 'link_mark_done_result.dart';
 import 'mark_done_result.dart';
 import 'providers.dart';
 import 'record_past_date_result.dart';
@@ -195,6 +197,46 @@ class ItemListNotifier extends StreamNotifier<List<ItemView>> {
       );
       return const UndoFailed();
     }
+  }
+
+  /// リンク(NFC タグ)から「やった」を記録する(F32)。**確認は挟まない。**
+  ///
+  /// コールドスタートでは一覧の読み込み前に呼ばれるので、最初の一覧を待ってから探す(判断9)。
+  /// 今日すでに記録済みなら書き込まない(判断6)。書き込みは [markDone] を通す。
+  Future<LinkMarkDoneResult> markDoneFromLink(ItemId id) async {
+    try {
+      await future;
+    } catch (error, stackTrace) {
+      developer.log(
+        'リンクからの記録で一覧を読み込めませんでした',
+        name: 'lastwhen.state',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const LinkMarkDoneFailed();
+    }
+    final index = _latestItems.indexWhere((item) => item.id == id);
+    if (index < 0) {
+      return const LinkMarkDoneNotFound();
+    }
+    final item = _latestItems[index];
+    final lastDoneAt = item.lastDoneAt;
+    if (lastDoneAt != null &&
+        elapsedDays(
+              lastDoneAt: lastDoneAt,
+              now: ref.read(clockProvider).now(),
+            ) ==
+            0) {
+      return LinkMarkDoneAlreadyToday(itemName: item.name);
+    }
+    return switch (await markDone(id)) {
+      MarkDoneSucceeded(:final undo) => LinkMarkDoneSucceeded(
+        itemName: item.name,
+        undo: undo,
+      ),
+      MarkDoneIgnored() => const LinkMarkDoneNotFound(),
+      MarkDoneFailed() => const LinkMarkDoneFailed(),
+    };
   }
 
   /// 日付の選択で選べる最後の日(= 今日のローカル暦日の 0:00、ローカル時刻)。

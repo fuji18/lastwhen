@@ -13,6 +13,7 @@ import 'package:lastwhen/state/delete_history_day_result.dart';
 import 'package:lastwhen/state/edit_item_result.dart';
 import 'package:lastwhen/state/collection.dart';
 import 'package:lastwhen/state/item_order.dart';
+import 'package:lastwhen/state/link_mark_done_result.dart';
 import 'package:lastwhen/state/item_sort_order.dart';
 import 'package:lastwhen/state/item_list_notifier.dart';
 import 'package:lastwhen/state/item_view.dart';
@@ -1044,6 +1045,80 @@ void main() {
         container.read(collectionItemsProvider).requireValue.map((v) => v.name),
         ['風呂掃除', '車の点検', '美容院'],
       );
+    });
+  });
+
+  group('markDoneFromLink', () {
+    Future<ProviderContainer> ready(Item item) async {
+      final container = _container(repository, FakeClock(now));
+      await container.read(itemListProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      return container;
+    }
+
+    Future<DateTime?> lastDoneAt() async =>
+        (await repository.watchAll().first).single.lastDoneAt;
+
+    test('未実施の項目を記録する', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready(item);
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(item.id);
+      expect(result, isA<LinkMarkDoneSucceeded>());
+      expect((result as LinkMarkDoneSucceeded).itemName, '美容院');
+      expect(await lastDoneAt(), now);
+    });
+
+    test('昨日記録済みでも記録する', () async {
+      final item = await repository.add('美容院', now: now);
+      await repository.markDone(item.id, now.subtract(const Duration(days: 1)));
+      final container = await ready(item);
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(item.id);
+      expect(result, isA<LinkMarkDoneSucceeded>());
+    });
+
+    test('今日記録済みなら書き込まない', () async {
+      final item = await repository.add('美容院', now: now);
+      await repository.markDone(item.id, now);
+      final container = await ready(item);
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(item.id);
+      expect(result, isA<LinkMarkDoneAlreadyToday>());
+      expect(await lastDoneAt(), now);
+    });
+
+    test('存在しない ID は見つからず、書き込まない', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready(item);
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(ItemId('unknown'));
+      expect(result, isA<LinkMarkDoneNotFound>());
+      expect(await lastDoneAt(), isNull);
+    });
+
+    test('一覧の初回読み込み前に呼んでも記録できる', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = _container(repository, FakeClock(now));
+      final result = await container
+          .read(itemListProvider.notifier)
+          .markDoneFromLink(item.id);
+      expect(result, isA<LinkMarkDoneSucceeded>());
+      expect(await lastDoneAt(), now);
+    });
+
+    test('undo を渡すと未実施に戻る', () async {
+      final item = await repository.add('美容院', now: now);
+      final container = await ready(item);
+      final notifier = container.read(itemListProvider.notifier);
+      final result =
+          await notifier.markDoneFromLink(item.id) as LinkMarkDoneSucceeded;
+      await notifier.undoMarkDone(result.undo);
+      expect(await lastDoneAt(), isNull);
     });
   });
 }
