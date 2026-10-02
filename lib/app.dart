@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'ui/done_link_receiver.dart';
 import 'ui/screens/home_shell.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -12,7 +13,10 @@ import 'ui/theme/app_theme.dart';
 /// ロケールは `ja` に固定する(#49)。
 class App extends StatelessWidget {
   /// アプリのルートウィジェットを作る。
-  const App({super.key});
+  const App({super.key, this.doneLinks});
+
+  /// 記録のリンクの受け口(F32)。テストでは省略できる。
+  final DoneLinkReceiver? doneLinks;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,7 @@ class App extends StatelessWidget {
       locale: const Locale('ja'),
       supportedLocales: const [Locale('ja')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const HomeShell(),
+      home: HomeShell(doneLinks: doneLinks),
     );
   }
 }

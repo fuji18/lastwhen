@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../domain/item.dart';
+import '../done_link_receiver.dart';
+import '../item_navigation.dart';
 import '../widgets/paper_background.dart';
 import 'collection_screen.dart';
 import 'item_list_screen.dart';
@@ -16,7 +21,11 @@ import 'settings_screen.dart';
 /// 複製される。同じ内容の `SnackBar` が 2 つ載ると Hero タグが衝突し、記録直後の画面遷移で
 /// 例外になる(#34 判断9)。
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+  const HomeShell({super.key, this.doneLinks});
+
+  /// 記録のリンクの受け口(F32)。テストでは省略できる。
+  final DoneLinkReceiver? doneLinks;
+
   @override
   State<HomeShell> createState() => _HomeShellState();
 }
@@ -26,6 +35,32 @@ class _HomeShellState extends State<HomeShell> {
 
   /// 設定タブの `ScaffoldMessenger`。タブ切替でコピー完了の `SnackBar` を閉じるために持つ。
   final _settingsMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // initState 中は ScaffoldMessenger.of を引けないので 1 フレーム後に受け口をつなぐ。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.doneLinks?.attach(_onDoneLink);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.doneLinks?.detach();
+    super.dispose();
+  }
+
+  /// 記録のリンク(F32)を受けた。ホームへ切り替えて記録する(design.md 判断8)。
+  void _onDoneLink(ItemId? id) {
+    if (!mounted) {
+      return;
+    }
+    _select(0);
+    unawaited(recordFromDoneLink(context, id));
+  }
 
   @override
   Widget build(BuildContext context) {

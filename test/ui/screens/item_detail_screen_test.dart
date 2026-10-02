@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lastwhen/app.dart';
@@ -335,6 +336,54 @@ void main() {
       expect(find.byType(ItemEditScreen), findsNothing);
       expect(find.byType(ItemListScreen), findsOneWidget);
       expect(find.text('歯ブラシ交換'), findsOneWidget);
+    });
+  });
+
+  group('NFC タグ', () {
+    testWidgets('メニューからダイアログを開くとリンクが表示される', (tester) async {
+      final item = await repository.add('美容院', now: now);
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      await openDetail(tester, '美容院');
+      await openMenu(tester);
+      await tester.tap(find.text('NFC タグに登録'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('lastwhen://done/${item.id.value}'), findsOneWidget);
+    });
+
+    testWidgets('コピーでクリップボードに入りダイアログが閉じる', (tester) async {
+      final item = await repository.add('美容院', now: now);
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied =
+                (call.arguments as Map<dynamic, dynamic>)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(_app(repository, FakeClock(now)));
+      await tester.pumpAndSettle();
+      await openDetail(tester, '美容院');
+      await openMenu(tester);
+      await tester.tap(find.text('NFC タグに登録'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('コピー'));
+      await tester.pumpAndSettle();
+
+      expect(copied, 'lastwhen://done/${item.id.value}');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('リンクをコピーしました'), findsOneWidget);
     });
   });
 

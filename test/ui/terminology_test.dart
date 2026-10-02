@@ -61,7 +61,8 @@ List<String> _renderedTexts(WidgetTester tester) {
   return found;
 }
 
-String _stripAllowed(String text) => text.replaceAll('最終実施日', '');
+String _stripAllowed(String text) =>
+    text.replaceAll('最終実施日', '').replaceAll('NFC タグ', '');
 
 void _expectAllowed(Iterable<String> texts) {
   expect(texts, isNotEmpty);

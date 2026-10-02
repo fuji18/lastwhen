@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/item.dart';
 import '../state/item_view.dart';
+import '../state/link_mark_done_result.dart';
 import '../state/delete_history_day_result.dart';
 import '../state/item_list_notifier.dart';
 import '../state/mark_done_result.dart';
@@ -223,6 +224,49 @@ void _undoMarkDone(
       );
     }
   }());
+}
+
+/// 記録のリンク(NFC タグ)から記録し、結果を出す(F32)。**確認ダイアログは出さない。**
+///
+/// [id] が null = 形式が不正なリンク。見つからないときと同じ表示にする(design.md 判断5)。
+Future<void> recordFromDoneLink(BuildContext context, ItemId? id) async {
+  final messenger = ScaffoldMessenger.of(context);
+  if (id == null) {
+    _showDoneLinkMessage(messenger, 'この項目は見つかりませんでした');
+    return;
+  }
+  final notifier = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(itemListProvider.notifier);
+  final result = await notifier.markDoneFromLink(id);
+  switch (result) {
+    case LinkMarkDoneSucceeded(:final itemName, :final undo):
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('「$itemName」を記録しました'),
+          // アクションを付けると persist が既定で true になり、4 秒で消えない。
+          persist: false,
+          action: SnackBarAction(
+            label: '取り消す',
+            onPressed: () => _undoMarkDone(messenger, notifier, undo),
+          ),
+        ),
+      );
+    case LinkMarkDoneAlreadyToday(:final itemName):
+      _showDoneLinkMessage(messenger, '「$itemName」は今日すでに記録しています');
+    case LinkMarkDoneNotFound():
+      _showDoneLinkMessage(messenger, 'この項目は見つかりませんでした');
+    case LinkMarkDoneFailed():
+      _showDoneLinkMessage(messenger, '保存できませんでした。もう一度お試しください');
+  }
+}
+
+/// 記録のリンクの結果を 1 件だけ出す。
+void _showDoneLinkMessage(ScaffoldMessengerState messenger, String message) {
+  messenger.clearSnackBars();
+  messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
 /// 編集画面へ遷移する。**削除の入口でもある**(`docs/product-requirements.md` F7)。
